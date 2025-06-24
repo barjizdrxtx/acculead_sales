@@ -1,8 +1,8 @@
 // lib/components/bottomnavbar.dart
 
 import 'package:acculead_sales/dashboard/DashBoardPage.dart';
-import 'package:acculead_sales/home/followUp/FollowUp.dart';
-import 'package:acculead_sales/home/lead/Followup.dart';
+import 'package:acculead_sales/home/followUp/TodayFollowupPage.dart';
+import 'package:acculead_sales/home/followUp/FollowUpFormPage.dart';
 import 'package:flutter/material.dart';
 import 'package:acculead_sales/home/lead/LeadPage.dart';
 import 'package:acculead_sales/profile/Profile.dart';

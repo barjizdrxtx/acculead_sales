@@ -1,7 +1,7 @@
 // lib/pages/lead_detail_page.dart
 
 import 'dart:convert';
-import 'package:acculead_sales/home/lead/Followup.dart';
+import 'package:acculead_sales/home/followUp/FollowUpFormPage.dart';
 import 'package:acculead_sales/home/lead/LeadFormPage.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';

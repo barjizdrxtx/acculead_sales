@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../utls/url.dart';
 
 class LeadPage extends StatefulWidget {
@@ -125,6 +126,21 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
   Future<void> _makePhoneCall(String phoneNumber) async {
     if (phoneNumber.isNotEmpty) {
       await FlutterPhoneDirectCaller.callNumber(phoneNumber);
+    }
+  }
+
+  Future<void> _openWhatsApp(String phoneNumber) async {
+    if (phoneNumber.isEmpty) return;
+    final native = Uri.parse('whatsapp://send?phone=+91$phoneNumber');
+    final web = Uri.parse(
+      'https://api.whatsapp.com/send?phone=+91$phoneNumber',
+    );
+    if (!await launchUrl(native, mode: LaunchMode.externalApplication)) {
+      if (!await launchUrl(web, mode: LaunchMode.externalApplication)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open WhatsApp')),
+        );
+      }
     }
   }
 
@@ -270,10 +286,24 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
                             ],
                           ),
                           isThreeLine: true,
-                          trailing: IconButton(
-                            icon: const Icon(Icons.call, color: Colors.green),
-                            onPressed: () =>
-                                _makePhoneCall(lead['phoneNumber'] ?? ''),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.call,
+                                  color: Colors.green,
+                                ),
+                                onPressed: () => _makePhoneCall(phoneNumber),
+                              ),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.chat,
+                                  color: Colors.teal,
+                                ),
+                                onPressed: () => _openWhatsApp(phoneNumber),
+                              ),
+                            ],
                           ),
                           onTap: () => Navigator.push(
                             context,
