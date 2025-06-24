@@ -59,6 +59,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
     return Scaffold(
       body: IndexedStack(index: _selectedIndex, children: _pages),
       bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: Colors.white, // Set background to white
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
         items: _navItems,

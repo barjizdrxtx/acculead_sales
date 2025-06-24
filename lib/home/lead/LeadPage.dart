@@ -181,7 +181,7 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(_assigneeName),
+        title: Text(_assigneeName, style: TextStyle(color: Colors.black)),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black54,
         elevation: 0,
@@ -238,7 +238,7 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
                     onRefresh: _fetchLeads,
                     child: ListView.separated(
                       itemCount: leads.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      separatorBuilder: (_, __) => const Divider(height: 10),
                       itemBuilder: (_, i) {
                         final lead = leads[i];
                         final fullName = (lead['fullName'] ?? '').toString();
@@ -258,14 +258,22 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
                               style: const TextStyle(color: Colors.white),
                             ),
                           ),
-                          title: Text(fullName),
+                          title: Text(
+                            (fullName?.trim().isNotEmpty == true)
+                                ? fullName!
+                                : 'No Name',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              fontStyle: FontStyle.normal,
+                            ),
+                          ),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              SizedBox(height: 5),
                               Text(phoneNumber),
-                              const SizedBox(height: 4),
-                              Text(date),
-                              const SizedBox(height: 6),
+                              SizedBox(height: 10),
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
@@ -289,19 +297,44 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.call,
-                                  color: Colors.green,
-                                ),
-                                onPressed: () => _makePhoneCall(phoneNumber),
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.chat,
-                                  color: Colors.teal,
-                                ),
-                                onPressed: () => _openWhatsApp(phoneNumber),
+                              Row(
+                                children: [
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.withOpacity(
+                                        0.1,
+                                      ), // background with 20% opacity
+                                      borderRadius: BorderRadius.circular(
+                                        30,
+                                      ), // adjust for more/less roundness
+                                    ),
+                                    child: IconButton(
+                                      icon: const Icon(
+                                        Icons.call,
+                                        color: Colors.blue,
+                                      ),
+                                      onPressed: () =>
+                                          _makePhoneCall(phoneNumber),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                    child: IconButton(
+                                      icon: Image.asset(
+                                        'assets/whatsapp.png',
+                                        width: 24,
+                                        height: 24,
+                                        // If it's a PNG you can’t recolor it—make it teal in your asset or wrap in a ColorFiltered.
+                                      ),
+                                      onPressed: () =>
+                                          _openWhatsApp(phoneNumber),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
