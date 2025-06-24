@@ -90,7 +90,6 @@ class _DashboardPageState extends State<DashboardPage> {
               onRefresh: _loadLeads,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
                 child: buildMetricsForLeads(leads),
               ),
             ),
