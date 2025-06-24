@@ -8,28 +8,13 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:acculead_sales/auth/login.dart';
 import 'package:acculead_sales/components/bottomnavbar.dart';
-import 'package:acculead_sales/provider/theme_provider.dart';
 import 'package:acculead_sales/utls/url.dart';
-import 'package:provider/provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
   final token = prefs.getString(AccessToken.accessToken);
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(
-          create: (_) {
-            final theme = ThemeProvider();
-            theme.loadTheme();
-            return theme;
-          },
-        ),
-      ],
-      child: MyApp(initialToken: token),
-    ),
-  );
+  runApp(MyApp(initialToken: token));
 }
 
 class MyApp extends StatelessWidget {
@@ -41,47 +26,6 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Main',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.light().copyWith(
-        primaryColor: Colors.blue,
-        scaffoldBackgroundColor: Colors.white,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          iconTheme: IconThemeData(color: Colors.black),
-          titleTextStyle: TextStyle(
-            color: Colors.black,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          backgroundColor: Colors.white,
-          selectedItemColor: Colors.blue,
-          unselectedItemColor: Colors.grey,
-        ),
-      ),
-      darkTheme: ThemeData.dark().copyWith(
-        primaryColor: Colors.blue,
-        scaffoldBackgroundColor: Colors.white,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          iconTheme: IconThemeData(color: Colors.black),
-          titleTextStyle: TextStyle(
-            color: Colors.black,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          backgroundColor: Colors.white,
-          selectedItemColor: Colors.blue,
-          unselectedItemColor: Colors.grey,
-        ),
-      ),
-      themeMode: context.watch<ThemeProvider>().isDarkMode
-          ? ThemeMode.dark
-          : ThemeMode.light,
       home: SplashScreen(initialToken: initialToken),
     );
   }
@@ -97,7 +41,6 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen> {
   bool _permissionDenied = false;
-  late bool _isAdmin;
   List<String> leadNumbers = [];
 
   @override
@@ -107,10 +50,8 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _syncCallLogsAndNavigate() async {
-    // Fetch lead numbers and determine role
     await _fetchLeadNumbers();
 
-    // Request phone permission
     final status = await Permission.phone.request();
     if (!status.isGranted) {
       setState(() => _permissionDenied = true);
@@ -119,21 +60,18 @@ class _SplashScreenState extends State<SplashScreen> {
       return;
     }
 
-    // Only non-admin ("user") should sync call logs
-    if (!_isAdmin) {
-      final callLogs = await CallLog.get();
-      final filtered = callLogs.where((log) {
-        final number = log.number?.replaceAll(' ', '').trim();
-        if (number == null) return false;
-        return leadNumbers.any((leadNum) {
-          final cleanLead = leadNum.replaceAll(' ', '').trim();
-          return number.contains(cleanLead) || cleanLead.contains(number);
-        });
-      }).toList();
+    final callLogs = await CallLog.get();
+    final filtered = callLogs.where((log) {
+      final number = log.number?.replaceAll(' ', '').trim();
+      if (number == null) return false;
+      return leadNumbers.any((leadNum) {
+        final cleanLead = leadNum.replaceAll(' ', '').trim();
+        return number.contains(cleanLead) || cleanLead.contains(number);
+      });
+    }).toList();
 
-      for (var log in filtered) {
-        await _uploadSingleLog(log);
-      }
+    for (var log in filtered) {
+      await _uploadSingleLog(log);
     }
 
     _goToNextScreen();
@@ -143,12 +81,7 @@ class _SplashScreenState extends State<SplashScreen> {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(AccessToken.accessToken) ?? '';
     final userId = prefs.getString('userId') ?? '';
-    final role = prefs.getString('role')?.toLowerCase();
-    _isAdmin = (role == 'admin' || role == 'manager');
-
-    Uri uri = _isAdmin
-        ? Uri.parse('${ApiConstants.baseUrl}/lead')
-        : Uri.parse('${ApiConstants.baseUrl}/lead?assignedTo=$userId');
+    final uri = Uri.parse('${ApiConstants.baseUrl}/lead?assignedTo=$userId');
 
     try {
       final response = await http.get(
@@ -228,16 +161,65 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-
-      body: Center(
-        child: _permissionDenied
-            ? const Text(
+      body: _permissionDenied
+          ? const Center(
+              child: Text(
                 'Phone permission denied.\nPlease enable it in settings.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.red, fontSize: 16),
-              )
-            : const CircularProgressIndicator(),
-      ),
+              ),
+            )
+          : Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Logo/title skeleton
+                  Container(
+                    width: 120,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  // Menu placeholders
+                  Row(
+                    children: List.generate(
+                      3,
+                      (_) => Expanded(
+                        child: Container(
+                          height: 12,
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Card placeholders
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: 5,
+                      itemBuilder: (_, __) => Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Container(
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 }

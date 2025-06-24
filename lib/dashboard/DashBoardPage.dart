@@ -85,7 +85,79 @@ class _DashboardPageState extends State<DashboardPage> {
         iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          // Skeleton loading UI
+          ? Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  // metrics skeleton row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: List.generate(3, (_) {
+                      return Expanded(
+                        child: Container(
+                          height: 80,
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 24),
+                  // list skeleton
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: 5,
+                      itemBuilder: (_, __) => Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade300,
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    height: 12,
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade300,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    height: 12,
+                                    width:
+                                        MediaQuery.of(context).size.width * 0.5,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade300,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          // Actual content
           : RefreshIndicator(
               onRefresh: _loadLeads,
               child: SingleChildScrollView(
