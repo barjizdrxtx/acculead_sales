@@ -1,0 +1,243 @@
+// lib/main.dart
+
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:call_log/call_log.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:acculead_sales/auth/login.dart';
+import 'package:acculead_sales/components/bottomnavbar.dart';
+import 'package:acculead_sales/provider/theme_provider.dart';
+import 'package:acculead_sales/utls/url.dart';
+import 'package:provider/provider.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString(AccessToken.accessToken);
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) {
+            final theme = ThemeProvider();
+            theme.loadTheme();
+            return theme;
+          },
+        ),
+      ],
+      child: MyApp(initialToken: token),
+    ),
+  );
+}
+
+class MyApp extends StatelessWidget {
+  final String? initialToken;
+  const MyApp({Key? key, this.initialToken}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Main',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData.light().copyWith(
+        primaryColor: Colors.blue,
+        scaffoldBackgroundColor: Colors.white,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          iconTheme: IconThemeData(color: Colors.black),
+          titleTextStyle: TextStyle(
+            color: Colors.black,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+          backgroundColor: Colors.white,
+          selectedItemColor: Colors.blue,
+          unselectedItemColor: Colors.grey,
+        ),
+      ),
+      darkTheme: ThemeData.dark().copyWith(
+        primaryColor: Colors.blue,
+        scaffoldBackgroundColor: Colors.white,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          iconTheme: IconThemeData(color: Colors.black),
+          titleTextStyle: TextStyle(
+            color: Colors.black,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+          backgroundColor: Colors.white,
+          selectedItemColor: Colors.blue,
+          unselectedItemColor: Colors.grey,
+        ),
+      ),
+      themeMode: context.watch<ThemeProvider>().isDarkMode
+          ? ThemeMode.dark
+          : ThemeMode.light,
+      home: SplashScreen(initialToken: initialToken),
+    );
+  }
+}
+
+class SplashScreen extends StatefulWidget {
+  final String? initialToken;
+  const SplashScreen({Key? key, this.initialToken}) : super(key: key);
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  bool _permissionDenied = false;
+  late bool _isAdmin;
+  List<String> leadNumbers = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _syncCallLogsAndNavigate();
+  }
+
+  Future<void> _syncCallLogsAndNavigate() async {
+    // Fetch lead numbers and determine role
+    await _fetchLeadNumbers();
+
+    // Request phone permission
+    final status = await Permission.phone.request();
+    if (!status.isGranted) {
+      setState(() => _permissionDenied = true);
+      await Future.delayed(const Duration(seconds: 2));
+      _goToNextScreen();
+      return;
+    }
+
+    // Only non-admin ("user") should sync call logs
+    if (!_isAdmin) {
+      final callLogs = await CallLog.get();
+      final filtered = callLogs.where((log) {
+        final number = log.number?.replaceAll(' ', '').trim();
+        if (number == null) return false;
+        return leadNumbers.any((leadNum) {
+          final cleanLead = leadNum.replaceAll(' ', '').trim();
+          return number.contains(cleanLead) || cleanLead.contains(number);
+        });
+      }).toList();
+
+      for (var log in filtered) {
+        await _uploadSingleLog(log);
+      }
+    }
+
+    _goToNextScreen();
+  }
+
+  Future<void> _fetchLeadNumbers() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(AccessToken.accessToken) ?? '';
+    final userId = prefs.getString('userId') ?? '';
+    final role = prefs.getString('role')?.toLowerCase();
+    _isAdmin = (role == 'admin' || role == 'manager');
+
+    Uri uri = _isAdmin
+        ? Uri.parse('${ApiConstants.baseUrl}/lead')
+        : Uri.parse('${ApiConstants.baseUrl}/lead?assignedTo=$userId');
+
+    try {
+      final response = await http.get(
+        uri,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body)['result'] as List<dynamic>;
+        leadNumbers = data
+            .map(
+              (e) =>
+                  e['phoneNumber']?.toString().replaceAll(' ', '').trim() ?? '',
+            )
+            .where((num) => num.isNotEmpty)
+            .toList();
+      }
+    } catch (_) {
+      // ignore errors
+    }
+  }
+
+  Future<void> _uploadSingleLog(CallLogEntry log) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(AccessToken.accessToken) ?? '';
+    final userId = prefs.getString('userId') ?? '';
+
+    final payload = {
+      'phoneNumber': log.number ?? '',
+      'name': log.name ?? 'Unsaved',
+      'type': _getCallLabel(log.callType).toLowerCase(),
+      'timestamp': DateTime.fromMillisecondsSinceEpoch(
+        log.timestamp ?? 0,
+      ).toIso8601String(),
+      'duration': log.duration ?? 0,
+      'userId': userId,
+    };
+
+    final url = Uri.parse('${ApiConstants.baseUrl}/calllogs');
+    try {
+      await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(payload),
+      );
+    } catch (_) {
+      // ignore errors
+    }
+  }
+
+  String _getCallLabel(CallType? type) {
+    switch (type) {
+      case CallType.missed:
+        return 'missed';
+      case CallType.incoming:
+        return 'incoming';
+      case CallType.outgoing:
+        return 'outgoing';
+      default:
+        return 'unknown';
+    }
+  }
+
+  void _goToNextScreen() {
+    final next =
+        (widget.initialToken != null && widget.initialToken!.isNotEmpty)
+        ? BottomNavBar()
+        : LoginPage();
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => next));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+
+      body: Center(
+        child: _permissionDenied
+            ? const Text(
+                'Phone permission denied.\nPlease enable it in settings.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.red, fontSize: 16),
+              )
+            : const CircularProgressIndicator(),
+      ),
+    );
+  }
+}
