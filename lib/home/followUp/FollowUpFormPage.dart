@@ -118,6 +118,7 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+            backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Add Progress'),
         backgroundColor: Colors.white,

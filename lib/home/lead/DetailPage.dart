@@ -160,12 +160,12 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+            backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Lead Details'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
       ),
-      backgroundColor: Colors.white,
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : lead == null

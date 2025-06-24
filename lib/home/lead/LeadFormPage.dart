@@ -279,12 +279,12 @@ class _LeadFormPageState extends State<LeadFormPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(widget.leadId != null ? 'Edit Lead' : 'Add New Lead'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
       ),
-      backgroundColor: const Color(0xFFF5F7FB),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
