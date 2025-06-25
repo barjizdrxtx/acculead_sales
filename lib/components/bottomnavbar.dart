@@ -1,13 +1,13 @@
 // lib/components/bottomnavbar.dart
 
 import 'dart:convert';
+import 'package:acculead_sales/notification/NotificationPage.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:acculead_sales/dashboard/DashBoardPage.dart';
 import 'package:acculead_sales/home/followUp/TodayFollowupPage.dart';
-import 'package:acculead_sales/home/followUp/FollowUpFormPage.dart';
 import 'package:acculead_sales/home/lead/LeadPage.dart';
 import 'package:acculead_sales/profile/Profile.dart';
 import 'package:acculead_sales/utls/colors.dart';
@@ -26,6 +26,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
 
   static final List<Widget> _pages = [
     DashboardPage(),
+    NotificationPage(),
     TodayFollowupPage(),
     LeadPage(),
     ProfilePage(),
@@ -44,14 +45,14 @@ class _BottomNavBarState extends State<BottomNavBar> {
     if (token.isEmpty || userId.isEmpty) return;
 
     final uri = Uri.parse(
-      '${ApiConstants.baseUrl}/lead?assignedTo=${Uri.encodeComponent(userId)}',
+      '\${ApiConstants.baseUrl}/lead?assignedTo=\${Uri.encodeComponent(userId)}',
     );
     try {
       final res = await http.get(
         uri,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
+          'Authorization': 'Bearer \$token',
         },
       );
       if (res.statusCode == 200) {
@@ -60,23 +61,14 @@ class _BottomNavBarState extends State<BottomNavBar> {
             ? (jsonBody['result'] as List)
             : [];
         final count = leads.where((lead) => lead['status'] == 'new').length;
-        if (count != _newLeadsCount) {
-          setState(() => _newLeadsCount = count);
-        }
+        if (count != _newLeadsCount) setState(() => _newLeadsCount = count);
       }
-    } catch (_) {
-      // ignore errors
-    }
+    } catch (_) {}
   }
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-    // refresh badge whenever navigating away from Leads tab
-    if (index != 2) {
-      _checkNewLeads();
-    }
+    setState(() => _selectedIndex = index);
+    if (index != 3) _checkNewLeads();
   }
 
   BottomNavigationBarItem _buildLeadsItem() {
@@ -136,6 +128,11 @@ class _BottomNavBarState extends State<BottomNavBar> {
             icon: Icon(Icons.dashboard_outlined),
             activeIcon: Icon(Icons.dashboard),
             label: 'Dashboard',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.notifications_none),
+            activeIcon: Icon(Icons.notifications),
+            label: 'Notifications',
           ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.follow_the_signs_outlined),
