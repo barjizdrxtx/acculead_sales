@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../utls/url.dart';
 
 class LeadPage extends StatefulWidget {
@@ -21,7 +22,6 @@ class LeadPage extends StatefulWidget {
 class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
   List<dynamic> allLeads = [];
   bool isLoading = true;
-
   String searchQuery = '';
   DateTimeRange? selectedDateRange;
   late String _assigneeId;
@@ -39,9 +39,14 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
     'lost',
   ];
 
+  // Local notifications plugin
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
+
   @override
   void initState() {
     super.initState();
+    // Initialize tab controller
     _statusController =
         TabController(length: statusTabLabels.length, vsync: this)
           ..addListener(() {
@@ -51,6 +56,14 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
               );
             }
           });
+
+    // Initialize local notifications
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
+    const initSettings = InitializationSettings(android: androidSettings);
+    _localNotifications.initialize(initSettings);
+
     _loadAssignee();
   }
 
@@ -80,7 +93,9 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
       );
       if (response.statusCode == 200) {
         final result = jsonDecode(response.body);
-        allLeads = result['success'] == true ? result['result'] as List : [];
+        allLeads = result['success'] == true
+            ? result['result'] as List<dynamic>
+            : [];
       } else {
         allLeads = [];
       }
@@ -144,18 +159,36 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
     }
   }
 
+  /// Show a local notification
+  Future<void> _showLocalNotification(String title, String body) async {
+    const androidDetails = AndroidNotificationDetails(
+      'lead_channel',
+      'Lead Notifications',
+      channelDescription: 'Notifications for lead actions',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    const platformDetails = NotificationDetails(android: androidDetails);
+    await _localNotifications.show(0, title, body, platformDetails);
+  }
+
   List<dynamic> get _filteredLeads => allLeads.where((lead) {
-    if (activeStatus != 'All' && lead['status'] != activeStatus) return false;
+    if (activeStatus != 'All' && lead['status'] != activeStatus) {
+      return false;
+    }
     final q = searchQuery.toLowerCase();
     final name = (lead['fullName'] ?? '').toString().toLowerCase();
     final phone = (lead['phoneNumber'] ?? '').toString().toLowerCase();
-    if (!name.contains(q) && !phone.contains(q)) return false;
+    if (!name.contains(q) && !phone.contains(q)) {
+      return false;
+    }
     if (selectedDateRange != null) {
       final d = DateTime.tryParse(lead['enquiryDate'] ?? '');
       if (d == null ||
           d.isBefore(selectedDateRange!.start) ||
-          d.isAfter(selectedDateRange!.end))
+          d.isAfter(selectedDateRange!.end)) {
         return false;
+      }
     }
     return true;
   }).toList();
@@ -181,7 +214,7 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(_assigneeName, style: TextStyle(color: Colors.black)),
+        title: Text(_assigneeName, style: const TextStyle(color: Colors.black)),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black54,
         elevation: 0,
@@ -244,7 +277,6 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
                         final fullName = (lead['fullName'] ?? '').toString();
                         final phoneNumber = (lead['phoneNumber'] ?? '')
                             .toString();
-                        final date = formatDate(lead['enquiryDate'] ?? '');
                         final status = (lead['status'] ?? '').toString();
                         final initial = fullName.isNotEmpty
                             ? fullName[0].toUpperCase()
@@ -259,21 +291,18 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
                             ),
                           ),
                           title: Text(
-                            (fullName?.trim().isNotEmpty == true)
-                                ? fullName!
-                                : 'No Name',
+                            fullName.trim().isNotEmpty ? fullName : 'No Name',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
-                              fontStyle: FontStyle.normal,
                             ),
                           ),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              SizedBox(height: 5),
+                              const SizedBox(height: 5),
                               Text(phoneNumber),
-                              SizedBox(height: 10),
+                              const SizedBox(height: 10),
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
@@ -297,44 +326,53 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue.withOpacity(
-                                        0.1,
-                                      ), // background with 20% opacity
-                                      borderRadius: BorderRadius.circular(
-                                        30,
-                                      ), // adjust for more/less roundness
-                                    ),
-                                    child: IconButton(
-                                      icon: const Icon(
-                                        Icons.call,
-                                        color: Colors.blue,
-                                      ),
-                                      onPressed: () =>
-                                          _makePhoneCall(phoneNumber),
-                                    ),
+                              // Call
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                child: IconButton(
+                                  icon: const Icon(
+                                    Icons.call,
+                                    color: Colors.blue,
                                   ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(30),
-                                    ),
-                                    child: IconButton(
-                                      icon: Image.asset(
-                                        'assets/whatsapp.png',
-                                        width: 24,
-                                        height: 24,
-                                        // If it's a PNG you can’t recolor it—make it teal in your asset or wrap in a ColorFiltered.
-                                      ),
-                                      onPressed: () =>
-                                          _openWhatsApp(phoneNumber),
-                                    ),
+                                  onPressed: () => _makePhoneCall(phoneNumber),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // WhatsApp
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.green.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                child: IconButton(
+                                  icon: Image.asset(
+                                    'assets/whatsapp.png',
+                                    width: 24,
+                                    height: 24,
                                   ),
-                                ],
+                                  onPressed: () => _openWhatsApp(phoneNumber),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Notification Bell
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                child: IconButton(
+                                  icon: const Icon(
+                                    Icons.notifications,
+                                    color: Colors.orange,
+                                  ),
+                                  onPressed: () => _showLocalNotification(
+                                    'Lead Alert',
+                                    'You tapped on lead: ${fullName.isNotEmpty ? fullName : 'No Name'}',
+                                  ),
+                                ),
                               ),
                             ],
                           ),
