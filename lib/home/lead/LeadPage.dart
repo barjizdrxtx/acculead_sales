@@ -1,10 +1,15 @@
 // lib/pages/lead_page.dart
+//
+// Note: On Android 13+ you must add this to android/app/src/main/AndroidManifest.xml:
+// <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
 import 'dart:convert';
+import 'dart:io';
 import 'package:acculead_sales/home/lead/DetailPage.dart';
 import 'package:acculead_sales/home/lead/LeadFormPage.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
@@ -39,14 +44,14 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
     'lost',
   ];
 
-  // Local notifications plugin
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
   @override
   void initState() {
     super.initState();
-    // Initialize tab controller
+
+    // Tab controller for status
     _statusController =
         TabController(length: statusTabLabels.length, vsync: this)
           ..addListener(() {
@@ -57,14 +62,36 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
             }
           });
 
-    // Initialize local notifications
-    const androidSettings = AndroidInitializationSettings(
-      '@mipmap/ic_launcher',
-    );
-    const initSettings = InitializationSettings(android: androidSettings);
+    // Initialize notifications
+    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initSettings = InitializationSettings(android: androidInit);
     _localNotifications.initialize(initSettings);
 
+    // Request permissions if needed
+    _requestNotificationPermissions();
+
     _loadAssignee();
+  }
+
+  Future<void> _requestNotificationPermissions() async {
+    if (Platform.isAndroid) {
+      // Android 13+ runtime notification permission
+      final status = await Permission.notification.request();
+      debugPrint('Android notification permission: $status');
+    } else if (Platform.isIOS) {
+      final iosPlugin = _localNotifications
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >();
+      if (iosPlugin != null) {
+        final settings = await iosPlugin.requestPermissions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+        debugPrint('iOS notification settings: $settings');
+      }
+    }
   }
 
   Future<void> _loadAssignee() async {
@@ -84,18 +111,16 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
     );
 
     try {
-      final response = await http.get(
+      final res = await http.get(
         uri,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
         },
       );
-      if (response.statusCode == 200) {
-        final result = jsonDecode(response.body);
-        allLeads = result['success'] == true
-            ? result['result'] as List<dynamic>
-            : [];
+      if (res.statusCode == 200) {
+        final json = jsonDecode(res.body);
+        allLeads = json['success'] == true ? json['result'] as List : [];
       } else {
         allLeads = [];
       }
@@ -107,8 +132,8 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
   }
 
   String formatDate(String dateStr) {
-    final date = DateTime.tryParse(dateStr);
-    return date != null ? DateFormat('dd-MM-yyyy').format(date) : '';
+    final dt = DateTime.tryParse(dateStr);
+    return dt != null ? DateFormat('dd-MM-yyyy').format(dt) : '';
   }
 
   Future<void> _openAddLeadForm() async {
@@ -138,18 +163,16 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
     }
   }
 
-  Future<void> _makePhoneCall(String phoneNumber) async {
-    if (phoneNumber.isNotEmpty) {
-      await FlutterPhoneDirectCaller.callNumber(phoneNumber);
+  Future<void> _makePhoneCall(String phone) async {
+    if (phone.isNotEmpty) {
+      await FlutterPhoneDirectCaller.callNumber(phone);
     }
   }
 
-  Future<void> _openWhatsApp(String phoneNumber) async {
-    if (phoneNumber.isEmpty) return;
-    final native = Uri.parse('whatsapp://send?phone=+91$phoneNumber');
-    final web = Uri.parse(
-      'https://api.whatsapp.com/send?phone=+91$phoneNumber',
-    );
+  Future<void> _openWhatsApp(String phone) async {
+    if (phone.isEmpty) return;
+    final native = Uri.parse('whatsapp://send?phone=+91$phone');
+    final web = Uri.parse('https://api.whatsapp.com/send?phone=+91$phone');
     if (!await launchUrl(native, mode: LaunchMode.externalApplication)) {
       if (!await launchUrl(web, mode: LaunchMode.externalApplication)) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -159,7 +182,6 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
     }
   }
 
-  /// Show a local notification
   Future<void> _showLocalNotification(String title, String body) async {
     const androidDetails = AndroidNotificationDetails(
       'lead_channel',
@@ -370,7 +392,7 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
                                   ),
                                   onPressed: () => _showLocalNotification(
                                     'Lead Alert',
-                                    'You tapped on lead: ${fullName.isNotEmpty ? fullName : 'No Name'}',
+                                    'Tapped on lead: ${fullName.isNotEmpty ? fullName : 'No Name'}',
                                   ),
                                 ),
                               ),
