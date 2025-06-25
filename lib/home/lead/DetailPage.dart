@@ -13,6 +13,7 @@ import '../../utls/url.dart';
 class LeadDetailPage extends StatefulWidget {
   final String id;
   const LeadDetailPage({Key? key, required this.id}) : super(key: key);
+
   @override
   _LeadDetailPageState createState() => _LeadDetailPageState();
 }
@@ -24,6 +25,7 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
   double progress = 0.0;
   String status = '';
   String currentRole = '';
+
   final Map<String, String> statusDisplayMap = {
     'new': 'new',
     'hot': 'hot',
@@ -159,8 +161,13 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    // safely get name and initial
+    final rawName = lead?['fullName']?.toString().trim() ?? '';
+    final displayName = rawName.isNotEmpty ? rawName : 'Unnamed';
+    final initial = rawName.isNotEmpty ? rawName[0].toUpperCase() : '?';
+
     return Scaffold(
-            backgroundColor: Colors.white,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Lead Details'),
         backgroundColor: Colors.white,
@@ -180,10 +187,7 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
                         radius: 30,
                         backgroundColor: secondaryColor,
                         child: Text(
-                          (lead!['fullName'] as String?)
-                                  ?.substring(0, 1)
-                                  .toUpperCase() ??
-                              '?',
+                          initial,
                           style: const TextStyle(
                             fontSize: 24,
                             color: Colors.white,
@@ -193,7 +197,7 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: Text(
-                          lead!['fullName'] ?? 'Unnamed',
+                          displayName,
                           style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,

@@ -1,8 +1,3 @@
-// lib/pages/lead_page.dart
-//
-// Note: On Android 13+ you must add this to android/app/src/main/AndroidManifest.xml:
-// <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-
 import 'dart:convert';
 import 'dart:io';
 import 'package:acculead_sales/home/lead/DetailPage.dart';
@@ -119,8 +114,25 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
         },
       );
       if (res.statusCode == 200) {
-        final json = jsonDecode(res.body);
-        allLeads = json['success'] == true ? json['result'] as List : [];
+        final jsonBody = jsonDecode(res.body);
+        allLeads = jsonBody['success'] == true
+            ? (jsonBody['result'] as List)
+            : [];
+
+        // NEW: check for any lead with isAlert == true
+        final alertLead = allLeads.firstWhere((lead) {
+          // some documents nest ObjectId in {"$oid": "..."}
+          final idField = lead['_id'];
+          // no matter how _id is formatted, just check the boolean:
+          return lead['isAlert'] == true;
+        }, orElse: () => null);
+        if (alertLead != null) {
+          final name = alertLead['fullName'] ?? 'a lead';
+          _showLocalNotification(
+            '🚨 Lead Alert',
+            'Attention: "$name" is marked urgent.',
+          );
+        }
       } else {
         allLeads = [];
       }
