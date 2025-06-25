@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:acculead_sales/home/followUp/UpdateFollowUp.dart';
 import 'package:acculead_sales/home/lead/DetailPage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,6 +25,26 @@ class _TodayFollowupPageState extends State<TodayFollowupPage> {
   void initState() {
     super.initState();
     fetchTodayFollowups();
+  }
+
+  
+  Color _getAvatarColor(String status) {
+    switch (status) {
+      case 'new':
+        return Colors.green;
+      case 'hot':
+        return Colors.orange;
+      case 'not connected':
+        return Colors.blue;
+      case 'in progress':
+        return Colors.purple;
+      case 'closed':
+        return Colors.red;
+      case 'lost':
+        return Colors.grey;
+      default:
+        return Colors.grey.shade400;
+    }
   }
 
   Future<void> fetchTodayFollowups() async {
@@ -105,6 +126,37 @@ class _TodayFollowupPageState extends State<TodayFollowupPage> {
       }
     }
 
+    Future<void> _makePhoneCall(String phone) async {
+      if (phone.isNotEmpty) {
+        await FlutterPhoneDirectCaller.callNumber(phone);
+      }
+    }
+
+    Future<void> _openWhatsApp(String phone) async {
+      // Strip out any non-digits
+      final digits = phone.replaceAll(RegExp(r'\D'), '');
+      // If it's already more than 10 digits, assume it includes country code
+      final phoneWithCountry = digits.length > 10 ? '+$digits' : '+91$digits';
+
+      final native = Uri.parse('whatsapp://send?phone=$phoneWithCountry');
+      final web = Uri.parse(
+        'https://api.whatsapp.com/send?phone=$phoneWithCountry',
+      );
+
+      try {
+        // Try the native URI first, fall back to web
+        if (!await launchUrl(native, mode: LaunchMode.externalApplication)) {
+          if (!await launchUrl(web, mode: LaunchMode.externalApplication)) {
+            throw 'Could not launch WhatsApp';
+          }
+        }
+      } catch (_) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open WhatsApp')),
+        );
+      }
+    }
+
     final name = lead['fullName'] ?? 'No Name';
     final phone = lead['phoneNumber'] ?? '-';
     final status = lead['status'] ?? '-';
@@ -150,19 +202,32 @@ class _TodayFollowupPageState extends State<TodayFollowupPage> {
               ),
               const SizedBox(height: 8),
               Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  const Icon(Icons.smartphone, size: 16, color: Colors.grey),
-                  const SizedBox(width: 4),
-                  Text(phone, style: const TextStyle(color: Colors.grey)),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.phone, size: 20, color: Colors.teal),
-                    onPressed: () async {
-                      final uri = Uri(scheme: 'tel', path: phone);
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(uri);
-                      }
-                    },
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.call, color: Colors.blue),
+                      onPressed: () => _makePhoneCall(phone),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: IconButton(
+                      icon: Image.asset(
+                        'assets/whatsapp.png',
+                        width: 24,
+                        height: 24,
+                      ),
+                      onPressed: () => _openWhatsApp(phone),
+                    ),
                   ),
                 ],
               ),
@@ -179,7 +244,8 @@ class _TodayFollowupPageState extends State<TodayFollowupPage> {
                   icon: const Icon(Icons.add_task),
                   label: const Text('Add Follow-Up'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal,
+                    elevation: 0,
+                    backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -203,8 +269,11 @@ class _TodayFollowupPageState extends State<TodayFollowupPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("Today's Follow-Ups"),
-        centerTitle: true,
+        title: const Text(
+          "Today's Follow-Ups",
+          style: TextStyle(color: Colors.black),
+        ),
+        centerTitle: false,
         backgroundColor: Colors.white,
         foregroundColor: Colors.white,
         surfaceTintColor: Colors.white,

@@ -182,15 +182,27 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
   }
 
   Future<void> _openWhatsApp(String phone) async {
-    if (phone.isEmpty) return;
-    final native = Uri.parse('whatsapp://send?phone=+91$phone');
-    final web = Uri.parse('https://api.whatsapp.com/send?phone=+91$phone');
-    if (!await launchUrl(native, mode: LaunchMode.externalApplication)) {
-      if (!await launchUrl(web, mode: LaunchMode.externalApplication)) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open WhatsApp')),
-        );
+    // Strip out any non-digits
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    // If it's already more than 10 digits, assume it includes country code
+    final phoneWithCountry = digits.length > 10 ? '+$digits' : '+91$digits';
+
+    final native = Uri.parse('whatsapp://send?phone=$phoneWithCountry');
+    final web = Uri.parse(
+      'https://api.whatsapp.com/send?phone=$phoneWithCountry',
+    );
+
+    try {
+      // Try the native URI first, fall back to web
+      if (!await launchUrl(native, mode: LaunchMode.externalApplication)) {
+        if (!await launchUrl(web, mode: LaunchMode.externalApplication)) {
+          throw 'Could not launch WhatsApp';
+        }
       }
+    } catch (_) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Could not open WhatsApp')));
     }
   }
 
@@ -391,23 +403,6 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              // Notification Bell
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.orange.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                                child: IconButton(
-                                  icon: const Icon(
-                                    Icons.notifications,
-                                    color: Colors.orange,
-                                  ),
-                                  onPressed: () => _showLocalNotification(
-                                    'Lead Alert',
-                                    'Tapped on lead: ${fullName.isNotEmpty ? fullName : 'No Name'}',
-                                  ),
-                                ),
-                              ),
                             ],
                           ),
                           onTap: () => Navigator.push(
