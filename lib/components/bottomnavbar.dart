@@ -29,7 +29,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
     MainDashboardPage(),
     MainNotificationPage(),
     MainFollowUpsPage(),
-    MainLeadPage(),
+    Main_LeadPage(),
   ];
 
   @override

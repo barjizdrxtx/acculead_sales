@@ -46,17 +46,19 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _syncCallLogsAndNavigate();
+    // Navigate immediately
+    _goToNextScreen();
+    // Then sync in background
+    _startBackgroundSync();
   }
 
-  Future<void> _syncCallLogsAndNavigate() async {
+  /// Fetch lead numbers, request permission, and upload call logs in parallel
+  Future<void> _startBackgroundSync() async {
     await _fetchLeadNumbers();
 
     final status = await Permission.phone.request();
     if (!status.isGranted) {
       setState(() => _permissionDenied = true);
-      await Future.delayed(const Duration(seconds: 2));
-      _goToNextScreen();
       return;
     }
 
@@ -70,36 +72,40 @@ class _SplashScreenState extends State<SplashScreen> {
       });
     }).toList();
 
-    for (var log in filtered) {
-      await _uploadSingleLog(log);
-    }
-
-    _goToNextScreen();
+    // Upload all logs concurrently
+    await Future.wait(filtered.map(_uploadSingleLog), eagerError: true);
   }
 
   Future<void> _fetchLeadNumbers() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(AccessToken.accessToken) ?? '';
     final userId = prefs.getString('userId') ?? '';
-    final uri = Uri.parse('${ApiConstants.baseUrl}/lead?assignedTo=$userId');
+    final uri = Uri.parse(
+      '${ApiConstants.baseUrl}/lead?assignedTo=${Uri.encodeComponent(userId)}',
+    );
 
     try {
       final response = await http.get(
         uri,
-        headers: {'Authorization': 'Bearer $token'},
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
       );
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body)['result'] as List<dynamic>;
+        final data = (jsonDecode(response.body)['result'] as List<dynamic>);
         leadNumbers = data
             .map(
-              (e) =>
-                  e['phoneNumber']?.toString().replaceAll(' ', '').trim() ?? '',
+              (e) => (e['phoneNumber'] ?? '')
+                  .toString()
+                  .replaceAll(' ', '')
+                  .trim(),
             )
-            .where((num) => num.isNotEmpty)
+            .where((n) => n.isNotEmpty)
             .toList();
       }
     } catch (_) {
-      // ignore errors
+      // ignore fetch errors
     }
   }
 
@@ -130,7 +136,7 @@ class _SplashScreenState extends State<SplashScreen> {
         body: jsonEncode(payload),
       );
     } catch (_) {
-      // ignore errors
+      // ignore upload errors
     }
   }
 
@@ -152,9 +158,13 @@ class _SplashScreenState extends State<SplashScreen> {
         (widget.initialToken != null && widget.initialToken!.isNotEmpty)
         ? BottomNavBar()
         : LoginPage();
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => next));
+
+    // Use a post-frame callback to navigate outside of build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => next));
+    });
   }
 
   @override
@@ -174,7 +184,7 @@ class _SplashScreenState extends State<SplashScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Logo/title skeleton
+                  // Logo placeholder
                   Container(
                     width: 120,
                     height: 24,
@@ -184,7 +194,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     ),
                   ),
                   const SizedBox(height: 32),
-                  // Menu placeholders
+                  // Menu bar placeholders
                   Row(
                     children: List.generate(
                       3,
@@ -201,7 +211,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  // Card placeholders
+                  // Content placeholders
                   Expanded(
                     child: ListView.builder(
                       itemCount: 5,

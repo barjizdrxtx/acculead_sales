@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:acculead_sales/components/CustomAppBar.dart';
 import 'package:acculead_sales/home/lead/DetailPage.dart';
 import 'package:acculead_sales/home/lead/LeadFormPage.dart';
 import 'package:flutter/material.dart';
@@ -13,14 +12,14 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../utls/url.dart';
 
-class MainLeadPage extends StatefulWidget {
-  const MainLeadPage({Key? key}) : super(key: key);
+class Main_LeadPage extends StatefulWidget {
+  const Main_LeadPage({Key? key}) : super(key: key);
 
   @override
-  _MainLeadPageState createState() => _MainLeadPageState();
+  _Main_LeadPageState createState() => _Main_LeadPageState();
 }
 
-class _MainLeadPageState extends State<MainLeadPage>
+class _Main_LeadPageState extends State<Main_LeadPage>
     with TickerProviderStateMixin {
   List<dynamic> allLeads = [];
   bool isLoading = true;
@@ -261,7 +260,44 @@ class _MainLeadPageState extends State<MainLeadPage>
     final leads = _filteredLeads;
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: CustomAppBar(title: "Leads"),
+      appBar: AppBar(
+        title: Text(
+          _assigneeName,
+          style: const TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black54,
+        elevation: 0,
+        bottom: TabBar(
+          controller: _statusController,
+          isScrollable: true,
+          labelColor: Colors.blue,
+          unselectedLabelColor: Colors.black54,
+          tabs: statusTabLabels.map((e) => Tab(text: e.capitalize())).toList(),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.date_range),
+            onPressed: _pickDateRange,
+          ),
+          IconButton(
+            icon: const Icon(Icons.clear_all),
+            onPressed: () {
+              setState(() {
+                searchQuery = '';
+                selectedDateRange = null;
+                activeStatus = 'All';
+                _statusController.index = 0;
+              });
+              _fetchLeads();
+            },
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(
