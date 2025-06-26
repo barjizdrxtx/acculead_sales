@@ -219,7 +219,7 @@ class _MainProfilePageState extends State<MainProfilePage> {
                           style: TextStyle(fontWeight: FontWeight.w600),
                         ),
                         trailing: const Text(
-                          '2.0',
+                          '3.0',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
