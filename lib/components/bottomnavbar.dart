@@ -23,19 +23,20 @@ class BottomNavBar extends StatefulWidget {
 class _BottomNavBarState extends State<BottomNavBar> {
   int _selectedIndex = 0;
   int _newLeadsCount = 0;
+  int _newNotificationsCount = 0;
 
   static final List<Widget> _pages = [
     MainDashboardPage(),
     MainNotificationPage(),
     MainFollowUpsPage(),
     MainLeadPage(),
-    MainProfilePage(),
   ];
 
   @override
   void initState() {
     super.initState();
     _checkNewLeads();
+    _checkNewNotifications();
   }
 
   Future<void> _checkNewLeads() async {
@@ -53,7 +54,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
         uri,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer \$token',
+          'Authorization': 'Bearer $token',
         },
       );
       if (res.statusCode == 200) {
@@ -62,14 +63,52 @@ class _BottomNavBarState extends State<BottomNavBar> {
             ? (jsonBody['result'] as List)
             : [];
         final count = leads.where((lead) => lead['status'] == 'new').length;
-        if (count != _newLeadsCount) setState(() => _newLeadsCount = count);
+        if (count != _newLeadsCount) {
+          setState(() => _newLeadsCount = count);
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _checkNewNotifications() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(AccessToken.accessToken) ?? '';
+    final userId = prefs.getString('userId') ?? '';
+    if (token.isEmpty || userId.isEmpty) return;
+
+    final uri = Uri.parse(
+      '${ApiConstants.baseUrl}/notifications/user/${Uri.encodeComponent(userId)}',
+    );
+
+    try {
+      final res = await http.get(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['success'] == true && body['result'] != null) {
+          final allNotifs = (body['result'] as List)
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+          // assume unread flag: e['read'] == false
+          final unreadCount = allNotifs.where((n) => n['read'] == false).length;
+          if (unreadCount != _newNotificationsCount) {
+            setState(() => _newNotificationsCount = unreadCount);
+          }
+        }
       }
     } catch (_) {}
   }
 
   void _onItemTapped(int index) {
     setState(() => _selectedIndex = index);
-    if (index != 3) _checkNewLeads();
+    // refresh badges whenever switching tabs
+    _checkNewLeads();
+    _checkNewNotifications();
   }
 
   BottomNavigationBarItem _buildLeadsItem() {
@@ -112,6 +151,46 @@ class _BottomNavBarState extends State<BottomNavBar> {
     );
   }
 
+  BottomNavigationBarItem _buildNotificationsItem() {
+    Widget buildIcon(IconData iconData) {
+      return Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Icon(iconData),
+          if (_newNotificationsCount > 0)
+            Positioned(
+              top: -4,
+              right: -6,
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                child: Center(
+                  child: Text(
+                    '$_newNotificationsCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
+    return BottomNavigationBarItem(
+      icon: buildIcon(Icons.notifications_none),
+      activeIcon: buildIcon(Icons.notifications),
+      label: 'Notifications',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -130,11 +209,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
             activeIcon: Icon(Icons.dashboard),
             label: 'Dashboard',
           ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.notifications_none),
-            activeIcon: Icon(Icons.notifications),
-            label: 'Notifications',
-          ),
+          _buildNotificationsItem(),
           const BottomNavigationBarItem(
             icon: Icon(Icons.follow_the_signs_outlined),
             activeIcon: Icon(Icons.follow_the_signs),
