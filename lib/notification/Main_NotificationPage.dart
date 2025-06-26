@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
@@ -38,6 +39,7 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
 
   Future<void> _loadInitialNotifications() async {
     setState(() => _isLoading = true);
+
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(AccessToken.accessToken) ?? '';
     final userId = prefs.getString('userId') ?? '';
@@ -59,49 +61,53 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
       );
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body) as Map<String, dynamic>;
-        if (body['success'] == true && body['result'] is List) {
-          _notifications = (body['result'] as List)
-              .map((e) => Map<String, dynamic>.from(e))
-              .toList();
-        } else {
-          _notifications = [];
-        }
+        final list = body['success'] == true && body['result'] is List
+            ? (body['result'] as List).cast<Map<String, dynamic>>()
+            : <Map<String, dynamic>>[];
+        setState(() {
+          _notifications = list;
+        });
       } else {
-        _notifications = [];
+        setState(() => _notifications = []);
       }
     } catch (_) {
-      _notifications = [];
+      setState(() => _notifications = []);
     } finally {
       setState(() => _isLoading = false);
     }
   }
 
-  void _initSocket() async {
+  Future<void> _initSocket() async {
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getString('userId') ?? '';
     if (userId.isEmpty) return;
 
+    // 1) Connect *directly* to your notifications namespace over WSS
     _socket = IO.io(
-      '${ApiConstants.socketUrl}/notifications', // connect to notifications namespace
+      '${ApiConstants.socketUrl}/notifications',
       IO.OptionBuilder()
           .setTransports(['websocket'])
-          .disableAutoConnect()
-          .disableMultiplex()
-          .setPath('/socket.io') // explicit handshake path
+          .enableForceNew() // fresh connection
+          .disableMultiplex() // avoid re-use
+          .setPath('/socket.io') // Engine.IO handshake path
           .setQuery({'userId': userId})
           .build(),
     );
 
+    // 2) Actually open it
     _socket.connect();
 
+    // 3) Register events
     _socket.onConnect((_) {
       debugPrint('🟢 Socket connected: ${_socket.id}');
     });
 
     _socket.on('newNotification', (data) {
-      final notif = data is String ? jsonDecode(data) : data;
+      final notif = (data is String)
+          ? jsonDecode(data) as Map<String, dynamic>
+          : data as Map<String, dynamic>;
       setState(() {
-        _notifications.insert(0, Map<String, dynamic>.from(notif));
+        _notifications.insert(0, notif);
       });
     });
 
