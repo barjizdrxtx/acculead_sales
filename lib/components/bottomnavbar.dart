@@ -88,20 +88,40 @@ class _BottomNavBarState extends State<BottomNavBar> {
           'Authorization': 'Bearer $token',
         },
       );
+
       if (res.statusCode == 200) {
-        final body = jsonDecode(res.body);
-        if (body['success'] == true && body['result'] != null) {
-          final allNotifs = (body['result'] as List)
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        if (body['success'] == true && body['result'] is List) {
+          final allNotifs = (body['result'] as List<dynamic>)
               .map((e) => Map<String, dynamic>.from(e as Map))
               .toList();
-          // assume unread flag: e['read'] == false
-          final unreadCount = allNotifs.where((n) => n['read'] == false).length;
+
+          final unreadCount = allNotifs.where((n) {
+            final raw = n['read'];
+            bool isRead;
+
+            if (raw is bool) {
+              isRead = raw;
+            } else if (raw is int) {
+              isRead = raw != 0;
+            } else {
+              // e.g. "true" or "false"
+              isRead = raw.toString().toLowerCase() == 'true';
+            }
+
+            return !isRead; // only count those not read
+          }).length;
+
           if (unreadCount != _newNotificationsCount) {
             setState(() => _newNotificationsCount = unreadCount);
           }
         }
+      } else {
+        debugPrint('Notifications API returned ${res.statusCode}');
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error fetching notifications: $e');
+    }
   }
 
   void _onItemTapped(int index) {
