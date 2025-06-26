@@ -23,6 +23,7 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
   late IO.Socket _socket;
   List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = true;
+  bool _isConnected = false;
 
   @override
   void initState() {
@@ -33,6 +34,7 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
 
   @override
   void dispose() {
+    _socket.disconnect();
     _socket.dispose();
     super.dispose();
   }
@@ -82,42 +84,49 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
     final userId = prefs.getString('userId') ?? '';
     if (userId.isEmpty) return;
 
-    // 1) Connect *directly* to your notifications namespace over WSS
-    _socket = IO.io(
-      '${ApiConstants.socketUrl}/notifications',
-      IO.OptionBuilder()
-          .setTransports(['websocket'])
-          .enableForceNew() // fresh connection
-          .disableMultiplex() // avoid re-use
-          .setPath('/socket.io') // Engine.IO handshake path
-          .setQuery({'userId': userId})
-          .build(),
-    );
+    try {
+      // Use the same base URL as your API but with https
+      _socket = IO.io(
+        "api.acculeadinternational.com/notifications",
+        IO.OptionBuilder()
+            .setTransports(['websocket']) // use WebSocket only
+            .enableAutoConnect() // auto connect
+            .setQuery({'userId': userId}) // pass userId
+            .build(),
+      );
 
-    // 2) Actually open it
-    _socket.connect();
-
-    // 3) Register events
-    _socket.onConnect((_) {
-      debugPrint('🟢 Socket connected: ${_socket.id}');
-    });
-
-    _socket.on('newNotification', (data) {
-      final notif = (data is String)
-          ? jsonDecode(data) as Map<String, dynamic>
-          : data as Map<String, dynamic>;
-      setState(() {
-        _notifications.insert(0, notif);
+      _socket.onConnect((_) {
+        debugPrint('🟢 Socket connected: ${_socket.id}');
+        setState(() => _isConnected = true);
       });
-    });
 
-    _socket.onDisconnect((_) {
-      debugPrint('🔴 Socket disconnected');
-    });
+      _socket.on('newNotification', (data) {
+        debugPrint('New notification received: $data');
+        final notif = (data is String)
+            ? jsonDecode(data) as Map<String, dynamic>
+            : data as Map<String, dynamic>;
+        setState(() {
+          _notifications.insert(0, notif);
+        });
+      });
 
-    _socket.onError((err) {
-      debugPrint('⚠️ Socket error: $err');
-    });
+      _socket.onDisconnect((_) {
+        debugPrint('🔴 Socket disconnected');
+        setState(() => _isConnected = false);
+      });
+
+      _socket.onConnectError((err) {
+        debugPrint('⚠️ Socket connection error: $err');
+      });
+
+      _socket.onError((err) {
+        debugPrint('⚠️ Socket error: $err');
+      });
+
+      _socket.connect();
+    } catch (e) {
+      debugPrint('Socket initialization error: $e');
+    }
   }
 
   Future<void> _markAllAsRead() async {
@@ -179,6 +188,18 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
             icon: const Icon(Icons.mark_email_read),
             tooltip: 'Mark all as read',
             onPressed: _markAllAsRead,
+          ),
+          IconButton(
+            icon: Icon(
+              _isConnected ? Icons.wifi : Icons.wifi_off,
+              color: _isConnected ? Colors.green : Colors.red,
+            ),
+            tooltip: _isConnected ? 'Connected' : 'Disconnected',
+            onPressed: () {
+              if (!_isConnected) {
+                _initSocket();
+              }
+            },
           ),
         ],
       ),
