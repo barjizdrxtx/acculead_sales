@@ -45,8 +45,9 @@ class _BottomNavBarState extends State<BottomNavBar> {
     if (token.isEmpty || userId.isEmpty) return;
 
     final uri = Uri.parse(
-      '\${ApiConstants.baseUrl}/lead?assignedTo=\${Uri.encodeComponent(userId)}',
+      '${ApiConstants.baseUrl}/lead?assignedTo=${Uri.encodeComponent(userId)}',
     );
+
     try {
       final res = await http.get(
         uri,

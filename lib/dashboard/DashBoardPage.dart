@@ -1,6 +1,7 @@
 // lib/pages/dashboard_page.dart
 
 import 'dart:convert';
+import 'package:acculead_sales/components/CustomAppBar.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -77,15 +78,7 @@ class _DashboardPageState extends State<DashboardPage> {
     return Scaffold(
       backgroundColor: Colors.white,
 
-      appBar: AppBar(
-        title: Text(
-          widget.pageTitle,
-          style: const TextStyle(color: Colors.black),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
-      ),
+      appBar: CustomAppBar(title: "Dashboard"),
       body: isLoading
           // Skeleton loading UI
           ? Padding(

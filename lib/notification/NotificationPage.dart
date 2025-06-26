@@ -30,6 +30,7 @@ class _NotificationPageState extends State<NotificationPage> {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(AccessToken.accessToken) ?? '';
     final userId = prefs.getString('userId') ?? '';
+
     if (token.isEmpty || userId.isEmpty) {
       setState(() {
         _notifications = [];
@@ -38,7 +39,6 @@ class _NotificationPageState extends State<NotificationPage> {
       return;
     }
 
-    // Updated endpoint: /notifications/user/:userId
     final uri = Uri.parse(
       '${ApiConstants.baseUrl}/notifications/user/${Uri.encodeComponent(userId)}',
     );
@@ -51,29 +51,40 @@ class _NotificationPageState extends State<NotificationPage> {
           'Authorization': 'Bearer $token',
         },
       );
-      final body = jsonDecode(response.body);
-      if (response.statusCode == 200 && body['success'] == true) {
-        final list = (body['result'] as List).cast<Map<String, dynamic>>();
-        setState(() {
-          _notifications = list;
-          _isLoading = false;
-        });
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        if (body['success'] == true && body['result'] != null) {
+          final List<dynamic> data = body['result'];
+          final notifications = data
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+          setState(() {
+            _notifications = notifications;
+          });
+        } else {
+          setState(() {
+            _notifications = [];
+          });
+        }
       } else {
         setState(() {
           _notifications = [];
-          _isLoading = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
       setState(() {
         _notifications = [];
+      });
+    } finally {
+      setState(() {
         _isLoading = false;
       });
     }
   }
 
   String _formatDate(String? dateStr) {
-    if (dateStr == null) return '';
+    if (dateStr == null || dateStr.isEmpty) return '';
     final dt = DateTime.tryParse(dateStr)?.toLocal();
     return dt == null ? '' : DateFormat('dd MMM, hh:mm a').format(dt);
   }
@@ -110,7 +121,7 @@ class _NotificationPageState extends State<NotificationPage> {
                   final notif = _notifications[i];
                   final title = notif['title']?.toString() ?? '';
                   final message = notif['message']?.toString() ?? '';
-                  final time = _formatDate(notif['timestamp']?.toString());
+                  final time = _formatDate(notif['createdAt']?.toString());
 
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(
@@ -148,7 +159,7 @@ class _NotificationPageState extends State<NotificationPage> {
                       ),
                     ),
                     onTap: () {
-                      // handle notification tap if needed
+                      // Notification tap handling (optional)
                     },
                   );
                 },

@@ -230,9 +230,11 @@ class _LeadFormPageState extends State<LeadFormPage> {
     required List<String> items,
     String? value,
     required ValueChanged<String?> onChanged,
+    String? Function(String?)? validator,
   }) => DropdownButtonFormField<String>(
     value: items.contains(value) ? value : null,
     decoration: _decoration(label),
+    validator: validator,
     items: items
         .map((e) => DropdownMenuItem(value: e, child: Text(e)))
         .toList(),
@@ -396,6 +398,8 @@ class _LeadFormPageState extends State<LeadFormPage> {
                       items: ['new', 'in progress', 'hot', 'closed', 'lost'],
                       value: _status,
                       onChanged: (v) => setState(() => _status = v),
+                      validator: (val) =>
+                          val == null ? 'Status is required' : null,
                     ),
                     const SizedBox(height: 16),
                     _buildDropdown(
