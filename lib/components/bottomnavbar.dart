@@ -83,41 +83,20 @@ class _BottomNavBarState extends State<BottomNavBar> {
     try {
       final res = await http.get(
         uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+        headers: {'Authorization': 'Bearer $token'},
       );
 
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body) as Map<String, dynamic>;
         if (body['success'] == true && body['result'] is List) {
-          final allNotifs = (body['result'] as List<dynamic>)
-              .map((e) => Map<String, dynamic>.from(e as Map))
-              .toList();
-
-          final unreadCount = allNotifs.where((n) {
-            final raw = n['read'];
-            bool isRead;
-
-            if (raw is bool) {
-              isRead = raw;
-            } else if (raw is int) {
-              isRead = raw != 0;
-            } else {
-              // e.g. "true" or "false"
-              isRead = raw.toString().toLowerCase() == 'true';
-            }
-
-            return !isRead; // only count those not read
-          }).length;
-
+          // result already contains only unread notifications
+          final unreadCount = (body['result'] as List).length;
           if (unreadCount != _newNotificationsCount) {
             setState(() => _newNotificationsCount = unreadCount);
           }
         }
       } else {
-        debugPrint('Notifications API returned ${res.statusCode}');
+        debugPrint('Notifications API error: ${res.statusCode}');
       }
     } catch (e) {
       debugPrint('Error fetching notifications: $e');
