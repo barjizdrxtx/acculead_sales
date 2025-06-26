@@ -1,6 +1,7 @@
-// lib/home/notifications/NotificationPage.dart
+// lib/home/notifications/MainNotificationPage.dart
 
 import 'dart:convert';
+import 'package:acculead_sales/components/CustomAppBar.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -8,14 +9,14 @@ import 'package:intl/intl.dart';
 
 import '../../utls/url.dart';
 
-class NotificationPage extends StatefulWidget {
-  const NotificationPage({Key? key}) : super(key: key);
+class MainNotificationPage extends StatefulWidget {
+  const MainNotificationPage({Key? key}) : super(key: key);
 
   @override
-  _NotificationPageState createState() => _NotificationPageState();
+  _MainNotificationPageState createState() => _MainNotificationPageState();
 }
 
-class _NotificationPageState extends State<NotificationPage> {
+class _MainNotificationPageState extends State<MainNotificationPage> {
   List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = true;
 
@@ -93,15 +94,7 @@ class _NotificationPageState extends State<NotificationPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text(
-          'Notifications',
-          style: TextStyle(color: Colors.black),
-        ),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black54),
-      ),
+      appBar: CustomAppBar(title: "Notification"),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _notifications.isEmpty

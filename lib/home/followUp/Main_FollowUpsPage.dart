@@ -1,6 +1,7 @@
 // lib/pages/today_followup_page.dart
 
 import 'dart:convert';
+import 'package:acculead_sales/components/CustomAppBar.dart';
 import 'package:acculead_sales/home/followUp/UpdateFollowUp.dart';
 import 'package:acculead_sales/home/lead/DetailPage.dart';
 import 'package:flutter/material.dart';
@@ -12,12 +13,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../utls/url.dart';
 
-class TodayFollowupPage extends StatefulWidget {
+class MainFollowUpsPage extends StatefulWidget {
   @override
-  _TodayFollowupPageState createState() => _TodayFollowupPageState();
+  _MainFollowUpsPageState createState() => _MainFollowUpsPageState();
 }
 
-class _TodayFollowupPageState extends State<TodayFollowupPage> {
+class _MainFollowUpsPageState extends State<MainFollowUpsPage> {
   List<Map<String, dynamic>> todayLeads = [];
   bool isLoading = true;
 
@@ -27,7 +28,6 @@ class _TodayFollowupPageState extends State<TodayFollowupPage> {
     fetchTodayFollowups();
   }
 
-  
   Color _getAvatarColor(String status) {
     switch (status) {
       case 'new':
@@ -268,16 +268,7 @@ class _TodayFollowupPageState extends State<TodayFollowupPage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text(
-          "Today's Follow-Ups",
-          style: TextStyle(color: Colors.black),
-        ),
-        centerTitle: false,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.white,
-        surfaceTintColor: Colors.white,
-      ),
+      appBar: CustomAppBar(title: "Today's FollowUp"),
       body: Column(
         children: [
           Container(

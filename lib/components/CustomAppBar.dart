@@ -1,7 +1,7 @@
 // lib/components/custom_app_bar.dart
 
 import 'package:flutter/material.dart';
-import 'package:acculead_sales/profile/Profile.dart';
+import 'package:acculead_sales/profile/Main_Profile.dart';
 import '../utls/colors.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -25,19 +25,36 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    // start with any passed-in actions...
+    final canGoBack = Navigator.of(context).canPop();
+
     final actionWidgets = <Widget>[
       if (actions != null) ...actions!,
-      // then add profile icon if requested
       if (showProfileIcon)
-        IconButton(
-          icon: const Icon(Icons.person_outline),
-          color: Colors.black,
-          onPressed: () {
-            Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => const ProfilePage()));
-          },
+        Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: GestureDetector(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const MainProfilePage()),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(2), // width of the gradient ring
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [Color(0xFF42A5F5), Color(0xFFAB47BC)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: CircleAvatar(
+                radius: 18,
+                backgroundColor: Colors.grey.shade200,
+                backgroundImage: const AssetImage('assets/avatar.jpg'),
+              ),
+            ),
+          ),
         ),
     ];
 
@@ -45,13 +62,15 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       backgroundColor: backgroundColor,
       elevation: 0,
       automaticallyImplyLeading: false,
-      leading: showBackButton
+      leading: showBackButton && canGoBack
           ? IconButton(
               icon: const Icon(Icons.arrow_back),
               color: Colors.black,
               onPressed: () => Navigator.of(context).maybePop(),
             )
           : null,
+      centerTitle: false,
+      titleSpacing: 16,
       title: Text(
         title,
         style: const TextStyle(
@@ -60,13 +79,12 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           fontWeight: FontWeight.bold,
         ),
       ),
-      centerTitle: true,
       actions: actionWidgets,
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(
-          color: Colors.red, // or use greyLight from your utls/colors.dart
-          height: 1,
+      bottom: const PreferredSize(
+        preferredSize: Size.fromHeight(2),
+        child: ColoredBox(
+          color: Colors.red, // or greyLight
+          child: SizedBox(height: 1),
         ),
       ),
     );

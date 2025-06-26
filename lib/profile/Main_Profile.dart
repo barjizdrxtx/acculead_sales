@@ -5,14 +5,14 @@ import 'package:acculead_sales/auth/login.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:acculead_sales/utls/colors.dart';
 
-class ProfilePage extends StatefulWidget {
-  const ProfilePage({Key? key}) : super(key: key);
+class MainProfilePage extends StatefulWidget {
+  const MainProfilePage({Key? key}) : super(key: key);
 
   @override
-  _ProfilePageState createState() => _ProfilePageState();
+  _MainProfilePageState createState() => _MainProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+class _MainProfilePageState extends State<MainProfilePage> {
   String email = '';
   bool isLoading = true;
 

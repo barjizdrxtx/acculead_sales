@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:acculead_sales/components/CustomAppBar.dart';
 import 'package:acculead_sales/home/lead/DetailPage.dart';
 import 'package:acculead_sales/home/lead/LeadFormPage.dart';
 import 'package:flutter/material.dart';
@@ -12,14 +13,15 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../utls/url.dart';
 
-class LeadPage extends StatefulWidget {
-  const LeadPage({Key? key}) : super(key: key);
+class MainLeadPage extends StatefulWidget {
+  const MainLeadPage({Key? key}) : super(key: key);
 
   @override
-  _LeadPageState createState() => _LeadPageState();
+  _MainLeadPageState createState() => _MainLeadPageState();
 }
 
-class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
+class _MainLeadPageState extends State<MainLeadPage>
+    with TickerProviderStateMixin {
   List<dynamic> allLeads = [];
   bool isLoading = true;
   String searchQuery = '';
@@ -259,37 +261,7 @@ class _LeadPageState extends State<LeadPage> with TickerProviderStateMixin {
     final leads = _filteredLeads;
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: Text(_assigneeName, style: const TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black54,
-        elevation: 0,
-        bottom: TabBar(
-          controller: _statusController,
-          isScrollable: true,
-          labelColor: Colors.blue,
-          unselectedLabelColor: Colors.black54,
-          tabs: statusTabLabels.map((e) => Tab(text: e.capitalize())).toList(),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.date_range),
-            onPressed: _pickDateRange,
-          ),
-          IconButton(
-            icon: const Icon(Icons.clear_all),
-            onPressed: () {
-              setState(() {
-                searchQuery = '';
-                selectedDateRange = null;
-                activeStatus = 'All';
-                _statusController.index = 0;
-              });
-              _fetchLeads();
-            },
-          ),
-        ],
-      ),
+      appBar: CustomAppBar(title: "Leads"),
       body: Column(
         children: [
           Padding(

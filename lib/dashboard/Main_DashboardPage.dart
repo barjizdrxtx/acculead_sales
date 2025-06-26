@@ -10,17 +10,17 @@ import 'package:acculead_sales/dashboard/Trends.dart';
 import 'package:acculead_sales/utls/colors.dart';
 import '../utls/url.dart';
 
-class DashboardPage extends StatefulWidget {
+class MainDashboardPage extends StatefulWidget {
   final String pageTitle;
 
-  const DashboardPage({Key? key, this.pageTitle = 'Dashboard'})
+  const MainDashboardPage({Key? key, this.pageTitle = 'Dashboard'})
     : super(key: key);
 
   @override
-  _DashboardPageState createState() => _DashboardPageState();
+  _MainDashboardPageState createState() => _MainDashboardPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage> {
+class _MainDashboardPageState extends State<MainDashboardPage> {
   bool isLoading = true;
   List<Map<String, dynamic>> leads = [];
   late String _assigneeId;

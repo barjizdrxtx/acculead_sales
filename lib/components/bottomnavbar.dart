@@ -1,15 +1,15 @@
 // lib/components/bottomnavbar.dart
 
 import 'dart:convert';
-import 'package:acculead_sales/notification/NotificationPage.dart';
+import 'package:acculead_sales/notification/Main_NotificationPage.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 
-import 'package:acculead_sales/dashboard/DashBoardPage.dart';
-import 'package:acculead_sales/home/followUp/TodayFollowupPage.dart';
-import 'package:acculead_sales/home/lead/LeadPage.dart';
-import 'package:acculead_sales/profile/Profile.dart';
+import 'package:acculead_sales/dashboard/Main_DashboardPage.dart';
+import 'package:acculead_sales/home/followUp/Main_FollowUpsPage.dart';
+import 'package:acculead_sales/home/lead/Main_LeadPage.dart';
+import 'package:acculead_sales/profile/Main_Profile.dart';
 import 'package:acculead_sales/utls/colors.dart';
 import 'package:acculead_sales/utls/url.dart';
 
@@ -25,11 +25,11 @@ class _BottomNavBarState extends State<BottomNavBar> {
   int _newLeadsCount = 0;
 
   static final List<Widget> _pages = [
-    DashboardPage(),
-    NotificationPage(),
-    TodayFollowupPage(),
-    LeadPage(),
-    ProfilePage(),
+    MainDashboardPage(),
+    MainNotificationPage(),
+    MainFollowUpsPage(),
+    MainLeadPage(),
+    MainProfilePage(),
   ];
 
   @override
@@ -141,11 +141,6 @@ class _BottomNavBarState extends State<BottomNavBar> {
             label: 'Follow Up',
           ),
           _buildLeadsItem(),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
         ],
       ),
     );
