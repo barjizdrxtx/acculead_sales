@@ -77,7 +77,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
     if (token.isEmpty || userId.isEmpty) return;
 
     final uri = Uri.parse(
-      '${ApiConstants.baseUrl}/notifications/user/${Uri.encodeComponent(userId)}',
+      '${ApiConstants.baseUrl}/notifications/notRead/${Uri.encodeComponent(userId)}',
     );
 
     try {
