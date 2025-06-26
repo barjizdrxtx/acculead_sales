@@ -1,5 +1,7 @@
 class ApiConstants {
   static const String baseUrl = 'https://api.acculeadinternational.com';
+  static const String socketUrl =
+      'https://api.acculeadinternational.com'; // Socket.IO endpoint
 }
 
 class AccessToken {

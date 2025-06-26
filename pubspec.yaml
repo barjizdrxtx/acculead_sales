@@ -52,6 +52,7 @@ dependencies:
   just_audio: ^0.10.4
   csv: ^6.0.0
   flutter_local_notifications: ^19.3.0
+  socket_io_client: ^3.1.2
 
 dev_dependencies:
   flutter_test:

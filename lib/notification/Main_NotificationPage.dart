@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 import '../../components/CustomAppBar.dart';
 import '../../utls/url.dart';
@@ -21,11 +22,50 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
   List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = true;
   Timer? _pollTimer;
+  IO.Socket? _socket;
 
   @override
   void initState() {
     super.initState();
+    _initSocket();
     _startPolling();
+  }
+
+  void _initSocket() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getString('userId') ?? '';
+    if (userId.isEmpty) return;
+
+    _socket = IO.io(
+      ApiConstants.socketUrl + '/notifications',
+      IO.OptionBuilder()
+          .setTransports(['websocket'])
+          .enableAutoConnect()
+          .setQuery({'userId': userId})
+          .build(),
+    );
+
+    _socket!.onConnect((_) {
+      debugPrint('Socket connected: ${_socket!.id}');
+    });
+
+    _socket!.on('newNotification', (data) {
+      // data is the newly created notification
+      if (data is Map) {
+        setState(() {
+          _notifications.insert(0, Map<String, dynamic>.from(data));
+        });
+      } else if (data is String) {
+        final parsed = jsonDecode(data);
+        setState(() {
+          _notifications.insert(0, Map<String, dynamic>.from(parsed));
+        });
+      }
+    });
+
+    _socket!.onDisconnect((_) {
+      debugPrint('Socket disconnected');
+    });
   }
 
   void _startPolling() {
@@ -39,6 +79,7 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _socket?.dispose();
     super.dispose();
   }
 
@@ -105,12 +146,9 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
-        // Refresh list to update read status
         await _fetchNotifications(showLoader: false);
       }
-    } catch (_) {
-      // ignore errors silently
-    }
+    } catch (_) {}
   }
 
   Future<void> _markAllAsRead() async {
@@ -236,7 +274,6 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
                     ),
                     onTap: () {
                       if (!isRead) _markAsRead(id);
-                      // add further tap handling here
                     },
                   );
                 },
