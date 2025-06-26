@@ -4,9 +4,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 import '../../components/CustomAppBar.dart';
 import '../../utls/url.dart';
@@ -19,16 +19,61 @@ class MainNotificationPage extends StatefulWidget {
 }
 
 class _MainNotificationPageState extends State<MainNotificationPage> {
+  late IO.Socket _socket;
   List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = true;
-  Timer? _pollTimer;
-  IO.Socket? _socket;
 
   @override
   void initState() {
     super.initState();
+    _loadInitialNotifications();
     _initSocket();
-    _startPolling();
+  }
+
+  @override
+  void dispose() {
+    _socket.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadInitialNotifications() async {
+    setState(() => _isLoading = true);
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(AccessToken.accessToken) ?? '';
+    final userId = prefs.getString('userId') ?? '';
+    if (token.isEmpty || userId.isEmpty) {
+      setState(() {
+        _notifications = [];
+        _isLoading = false;
+      });
+      return;
+    }
+
+    final uri = Uri.parse(
+      '${ApiConstants.baseUrl}/notifications/user/${Uri.encodeComponent(userId)}',
+    );
+    try {
+      final res = await http.get(
+        uri,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        if (body['success'] == true && body['result'] is List) {
+          _notifications = (body['result'] as List)
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        } else {
+          _notifications = [];
+        }
+      } else {
+        _notifications = [];
+      }
+    } catch (_) {
+      _notifications = [];
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
   void _initSocket() async {
@@ -37,118 +82,36 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
     if (userId.isEmpty) return;
 
     _socket = IO.io(
-      ApiConstants.socketUrl + '/notifications',
+      '${ApiConstants.socketUrl}/notifications', // connect to notifications namespace
       IO.OptionBuilder()
           .setTransports(['websocket'])
-          .enableAutoConnect()
+          .disableAutoConnect()
+          .disableMultiplex()
+          .setPath('/socket.io') // explicit handshake path
           .setQuery({'userId': userId})
           .build(),
     );
 
-    _socket!.onConnect((_) {
-      debugPrint('Socket connected: ${_socket!.id}');
+    _socket.connect();
+
+    _socket.onConnect((_) {
+      debugPrint('🟢 Socket connected: ${_socket.id}');
     });
 
-    _socket!.on('newNotification', (data) {
-      // data is the newly created notification
-      if (data is Map) {
-        setState(() {
-          _notifications.insert(0, Map<String, dynamic>.from(data));
-        });
-      } else if (data is String) {
-        final parsed = jsonDecode(data);
-        setState(() {
-          _notifications.insert(0, Map<String, dynamic>.from(parsed));
-        });
-      }
+    _socket.on('newNotification', (data) {
+      final notif = data is String ? jsonDecode(data) : data;
+      setState(() {
+        _notifications.insert(0, Map<String, dynamic>.from(notif));
+      });
     });
 
-    _socket!.onDisconnect((_) {
-      debugPrint('Socket disconnected');
+    _socket.onDisconnect((_) {
+      debugPrint('🔴 Socket disconnected');
     });
-  }
 
-  void _startPolling() {
-    _fetchNotifications();
-    _pollTimer = Timer.periodic(
-      const Duration(seconds: 30),
-      (_) => _fetchNotifications(showLoader: false),
-    );
-  }
-
-  @override
-  void dispose() {
-    _pollTimer?.cancel();
-    _socket?.dispose();
-    super.dispose();
-  }
-
-  Future<void> _fetchNotifications({bool showLoader = true}) async {
-    if (showLoader) setState(() => _isLoading = true);
-
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString(AccessToken.accessToken) ?? '';
-    final userId = prefs.getString('userId') ?? '';
-
-    if (token.isEmpty || userId.isEmpty) {
-      if (showLoader) {
-        setState(() {
-          _notifications = [];
-          _isLoading = false;
-        });
-      }
-      return;
-    }
-
-    final uri = Uri.parse(
-      '${ApiConstants.baseUrl}/notifications/user/${Uri.encodeComponent(userId)}',
-    );
-
-    try {
-      final response = await http.get(
-        uri,
-        headers: {'Authorization': 'Bearer $token'},
-      );
-
-      if (response.statusCode == 200) {
-        final body = jsonDecode(response.body) as Map<String, dynamic>;
-        if (body['success'] == true && body['result'] is List) {
-          setState(() {
-            _notifications = (body['result'] as List)
-                .map((e) => Map<String, dynamic>.from(e))
-                .toList();
-          });
-        } else {
-          setState(() => _notifications = []);
-        }
-      } else {
-        setState(() => _notifications = []);
-      }
-    } catch (_) {
-      setState(() => _notifications = []);
-    } finally {
-      if (showLoader) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _markAsRead(String notifId) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString(AccessToken.accessToken) ?? '';
-    if (token.isEmpty) return;
-
-    final uri = Uri.parse(
-      '${ApiConstants.baseUrl}/notifications/markRead/${Uri.encodeComponent(notifId)}',
-    );
-
-    try {
-      final res = await http.patch(
-        uri,
-        headers: {'Authorization': 'Bearer $token'},
-      );
-      if (res.statusCode == 200) {
-        await _fetchNotifications(showLoader: false);
-      }
-    } catch (_) {}
+    _socket.onError((err) {
+      debugPrint('⚠️ Socket error: $err');
+    });
   }
 
   Future<void> _markAllAsRead() async {
@@ -160,20 +123,41 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
     final uri = Uri.parse(
       '${ApiConstants.baseUrl}/notifications/markAllRead/${Uri.encodeComponent(userId)}',
     );
-
     try {
       final res = await http.patch(
         uri,
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
-        await _fetchNotifications(showLoader: false);
+        _loadInitialNotifications();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _markAsRead(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(AccessToken.accessToken) ?? '';
+    if (token.isEmpty) return;
+
+    final uri = Uri.parse(
+      '${ApiConstants.baseUrl}/notifications/markRead/${Uri.encodeComponent(id)}',
+    );
+    try {
+      final res = await http.patch(
+        uri,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (res.statusCode == 200) {
+        setState(() {
+          final idx = _notifications.indexWhere((n) => n['_id'] == id);
+          if (idx != -1) _notifications[idx]['read'] = true;
+        });
       }
     } catch (_) {}
   }
 
   String _formatDate(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty) return '';
+    if (dateStr == null) return '';
     final dt = DateTime.tryParse(dateStr)?.toLocal();
     return dt == null ? '' : DateFormat('dd MMM, hh:mm a').format(dt);
   }
@@ -183,7 +167,7 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: CustomAppBar(
-        title: "Notifications",
+        title: 'Notifications',
         actions: [
           IconButton(
             icon: const Icon(Icons.mark_email_read),
@@ -198,23 +182,18 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
           ? Center(
               child: Text(
                 'No notifications.',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
               ),
             )
           : RefreshIndicator(
-              onRefresh: () => _fetchNotifications(showLoader: false),
+              onRefresh: _loadInitialNotifications,
               child: ListView.separated(
-                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 itemCount: _notifications.length,
                 separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (_, i) {
-                  final notif = _notifications[i];
-                  final id = notif['_id']?.toString() ?? '';
-                  final title = notif['title']?.toString() ?? '';
-                  final message = notif['message']?.toString() ?? '';
-                  final isRead = notif['read'] == true;
-                  final time = _formatDate(notif['createdAt']?.toString());
-
+                  final n = _notifications[i];
+                  final isRead = n['read'] == true;
                   return ListTile(
                     tileColor: isRead
                         ? Colors.white
@@ -229,7 +208,7 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
                         color: isRead
                             ? Colors.grey.withOpacity(0.1)
                             : Colors.blue.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(20),
+                        shape: BoxShape.circle,
                       ),
                       child: Icon(
                         Icons.notifications,
@@ -238,15 +217,15 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
                       ),
                     ),
                     title: Text(
-                      title,
+                      n['title'] ?? '',
                       style: TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                         color: isRead ? Colors.black54 : Colors.black87,
                       ),
                     ),
                     subtitle: Text(
-                      message,
+                      n['message'] ?? '',
                       style: TextStyle(
                         fontSize: 12,
                         color: isRead ? Colors.black45 : Colors.black54,
@@ -256,24 +235,25 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          time,
+                          _formatDate(n['createdAt']?.toString()),
                           style: TextStyle(
-                            color: Colors.grey.shade600,
                             fontSize: 10,
+                            color: Colors.grey.shade600,
                           ),
                         ),
                         if (!isRead) ...[
                           const SizedBox(width: 8),
                           IconButton(
                             icon: const Icon(Icons.mark_email_read, size: 18),
-                            tooltip: 'Mark as read',
-                            onPressed: () => _markAsRead(id),
+                            onPressed: () => _markAsRead(n['_id'].toString()),
                           ),
                         ],
                       ],
                     ),
                     onTap: () {
-                      if (!isRead) _markAsRead(id);
+                      if (!isRead) {
+                        _markAsRead(n['_id'].toString());
+                      }
                     },
                   );
                 },
