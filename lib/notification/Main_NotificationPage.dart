@@ -1,12 +1,13 @@
 // lib/home/notifications/MainNotificationPage.dart
 
+import 'dart:async';
 import 'dart:convert';
-import 'package:acculead_sales/components/CustomAppBar.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
+import '../../components/CustomAppBar.dart';
 import '../../utls/url.dart';
 
 class MainNotificationPage extends StatefulWidget {
@@ -19,24 +20,44 @@ class MainNotificationPage extends StatefulWidget {
 class _MainNotificationPageState extends State<MainNotificationPage> {
   List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = true;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
-    _fetchNotifications();
+    _startPolling();
   }
 
-  Future<void> _fetchNotifications() async {
-    setState(() => _isLoading = true);
+  void _startPolling() {
+    // Initial fetch immediately
+    _fetchNotifications();
+    // Then every 30 seconds without showing the full-screen loader
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _fetchNotifications(showLoader: false),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _fetchNotifications({bool showLoader = true}) async {
+    if (showLoader) setState(() => _isLoading = true);
+
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(AccessToken.accessToken) ?? '';
     final userId = prefs.getString('userId') ?? '';
 
     if (token.isEmpty || userId.isEmpty) {
-      setState(() {
-        _notifications = [];
-        _isLoading = false;
-      });
+      if (showLoader) {
+        setState(() {
+          _notifications = [];
+          _isLoading = false;
+        });
+      }
       return;
     }
 
@@ -47,40 +68,27 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
     try {
       final response = await http.get(
         uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+        headers: {'Authorization': 'Bearer $token'},
       );
 
       if (response.statusCode == 200) {
-        final body = jsonDecode(response.body);
-        if (body['success'] == true && body['result'] != null) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        if (body['success'] == true && body['result'] is List) {
           final List<dynamic> data = body['result'];
           final notifications = data
               .map((e) => Map<String, dynamic>.from(e as Map))
               .toList();
-          setState(() {
-            _notifications = notifications;
-          });
+          setState(() => _notifications = notifications);
         } else {
-          setState(() {
-            _notifications = [];
-          });
+          setState(() => _notifications = []);
         }
       } else {
-        setState(() {
-          _notifications = [];
-        });
+        setState(() => _notifications = []);
       }
-    } catch (e) {
-      setState(() {
-        _notifications = [];
-      });
+    } catch (_) {
+      setState(() => _notifications = []);
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (showLoader) setState(() => _isLoading = false);
     }
   }
 
@@ -105,7 +113,7 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
               ),
             )
           : RefreshIndicator(
-              onRefresh: _fetchNotifications,
+              onRefresh: () => _fetchNotifications(showLoader: false),
               child: ListView.separated(
                 physics: const AlwaysScrollableScrollPhysics(),
                 itemCount: _notifications.length,
@@ -152,7 +160,7 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
                       ),
                     ),
                     onTap: () {
-                      // Notification tap handling (optional)
+                      // Handle tap if needed
                     },
                   );
                 },
