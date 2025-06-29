@@ -27,12 +27,12 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
   String currentRole = '';
 
   final Map<String, String> statusDisplayMap = {
-    'new': 'new',
-    'hot': 'hot',
-    'not connected': 'not connected',
-    'in progress': 'in progress',
-    'closed': 'closed',
-    'lost': 'lost',
+    'new': 'New',
+    'hot': 'Hot',
+    'not connected': 'Not Connected',
+    'in progress': 'In Progress',
+    'closed': 'Closed',
+    'lost': 'Lost',
   };
 
   @override
@@ -61,9 +61,13 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
     );
     if (response.statusCode == 200) {
       final data = json.decode(response.body)['result'];
+      final List followUps = data['followUps'] ?? [];
+      final lastStatus = followUps.isNotEmpty
+          ? (followUps.last['status']?.toString().toLowerCase().trim() ?? '')
+          : (data['status'] ?? '').toString().toLowerCase().trim();
       setState(() {
         lead = data;
-        status = (data['status'] ?? '').toString().toLowerCase().trim();
+        status = lastStatus;
       });
     }
     setState(() => isLoading = false);
@@ -88,7 +92,6 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
     if (response.statusCode == 200) {
       await fetchLead();
       setState(() {
-        status = newStatus;
         progress = 1.0;
       });
     }
@@ -135,11 +138,16 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
     switch (s) {
       case 'new':
         return Colors.green.shade700;
-      case 'in progress':
+      case 'hot':
         return Colors.orange.shade700;
+      case 'in progress':
+        return Colors.blue.shade700;
       case 'closed':
+        return Colors.grey.shade800;
       case 'lost':
         return Colors.red.shade700;
+      case 'not connected':
+        return Colors.grey.shade600;
       default:
         return Colors.grey.shade700;
     }
@@ -149,11 +157,16 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
     switch (s) {
       case 'new':
         return Colors.green.shade100;
-      case 'in progress':
+      case 'hot':
         return Colors.orange.shade100;
+      case 'in progress':
+        return Colors.blue.shade100;
       case 'closed':
+        return Colors.grey.shade300;
       case 'lost':
         return Colors.red.shade100;
+      case 'not connected':
+        return Colors.grey.shade200;
       default:
         return Colors.grey.shade100;
     }
@@ -161,10 +174,10 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    // safely get name and initial
     final rawName = lead?['fullName']?.toString().trim() ?? '';
     final displayName = rawName.isNotEmpty ? rawName : 'Unnamed';
     final initial = rawName.isNotEmpty ? rawName[0].toUpperCase() : '?';
+    final followUps = List<Map<String, dynamic>>.from(lead?['followUps'] ?? []);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -181,6 +194,7 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
               padding: const EdgeInsets.all(20),
               child: ListView(
                 children: [
+                  // Header with name and current status
                   Row(
                     children: [
                       CircleAvatar(
@@ -196,52 +210,41 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
                       ),
                       const SizedBox(width: 16),
                       Expanded(
-                        child: Text(
-                          displayName,
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              displayName,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _statusBgColor(status),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                statusDisplayMap[status] ?? status,
+                                style: TextStyle(
+                                  color: _statusTextColor(status),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                   const Divider(height: 30),
-
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'Status',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(width: 8), // ← add spacing here
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: _statusBgColor(status),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          statusDisplayMap[status] ?? 'N/A',
-                          style: TextStyle(
-                            color: _statusTextColor(status),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 12),
-
-          
+                  // Lead details
                   _buildLabel('Phone', lead!['phoneNumber']),
                   _buildLabel('Email', lead!['email']),
                   _buildLabel('Gender', lead!['gender']),
@@ -255,55 +258,134 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
                   _buildLabel('Updated At', _formatDate(lead!['updatedAt'])),
                   _buildLabel('Source', lead!['source']),
                   const SizedBox(height: 20),
-                  if (lead!['followUps'] != null &&
-                      (lead!['followUps'] as List).isNotEmpty) ...[
+                  if (followUps.isNotEmpty) ...[
                     const Divider(height: 30),
-                    const Text(
-                      'Follow-Up History',
-                      style: TextStyle(
+                    Text(
+                      'Follow-Up History (${followUps.length})',
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 12),
-                    ...((lead!['followUps'] as List)
-                        .map((fuRaw) {
-                          final fu = Map<String, dynamic>.from(fuRaw);
-                          return Container(
-                            margin: const EdgeInsets.symmetric(vertical: 6),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                    ...followUps.asMap().entries.map((entry) {
+                      final idx = entry.key + 1;
+                      final fu = entry.value;
+                      final fuStatus =
+                          fu['status']?.toString().toLowerCase().trim() ?? '';
+                      return Container(
+                        margin: const EdgeInsets.symmetric(vertical: 6),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // 1. Serial number, Created date & Status pill
+                            Row(
                               children: [
-                                const Icon(Icons.note, color: secondaryColor),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Date: ${_formatDate(fu['date']?.toString())}',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(fu['note']?.toString() ?? '-'),
-                                    ],
+                                // Serial number bubble
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.deepPurpleAccent,
+                                  ),
+                                  child: Text(
+                                    '$idx',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                // Created date text
+                                Text(
+                                  'Created: ${_formatDate(fu['createdAt']?.toString())}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.deepPurpleAccent,
+                                  ),
+                                ),
+                                const Spacer(),
+                                // Status pill
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _statusBgColor(fuStatus),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    statusDisplayMap[fuStatus] ?? fuStatus,
+                                    style: TextStyle(
+                                      color: _statusTextColor(fuStatus),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                          );
-                        })
-                        .toList()
-                        .cast<Widget>()),
+
+                            const SizedBox(height: 6),
+
+                            // 2. Next follow-up line
+                            Text(
+                              'Next follow-up: ${_formatDate(fu['followUpDate']?.toString())}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontStyle: FontStyle.italic,
+                                color: Colors.green,
+                              ),
+                            ),
+
+                            const SizedBox(height: 12),
+
+                            // 3. Note block with heading
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Note:',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.blueGrey.shade700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    fu['note']?.toString() ?? '-',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      height: 1.3,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
                   ],
                 ],
               ),

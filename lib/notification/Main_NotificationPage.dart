@@ -50,16 +50,29 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
         uri,
         headers: {'Authorization': 'Bearer $token'},
       );
+
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body) as Map<String, dynamic>;
-        final list = (body['success'] == true && body['result'] is List)
-            ? (body['result'] as List).cast<Map<String, dynamic>>()
-            : <Map<String, dynamic>>[];
-        setState(() => _notifications = list);
+
+        // ensure result is a List and convert each entry
+        if (body['success'] == true && body['result'] is List) {
+          final rawList = body['result'] as List;
+          final list = rawList
+              .map((e) => Map<String, dynamic>.from(e as Map))
+              .toList();
+
+          setState(() => _notifications = list);
+        } else {
+          setState(() => _notifications = []);
+        }
       } else {
+        // non-200
+        debugPrint('Notifications API error: ${res.statusCode}');
+        debugPrint('Body: ${res.body}');
         setState(() => _notifications = []);
       }
-    } catch (_) {
+    } catch (err) {
+      debugPrint('Failed to load notifications: $err');
       setState(() => _notifications = []);
     } finally {
       setState(() => _isLoading = false);

@@ -23,37 +23,13 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
   final TextEditingController _noteController = TextEditingController();
   String? _status;
   bool _isSubmitting = false;
-  List<Map<String, dynamic>> _existingFollowUps = [];
 
   final List<String> _statusOptions = ['in progress', 'hot', 'closed', 'lost'];
 
   @override
-  void initState() {
-    super.initState();
-    _loadExistingFollowUps();
-  }
-
-  Future<void> _loadExistingFollowUps() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString(AccessToken.accessToken) ?? '';
-    final url = Uri.parse('${ApiConstants.baseUrl}/lead/${widget.leadId}');
-    final response = await http.get(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-    );
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body)['result'];
-      if (data['followUps'] != null && data['followUps'] is List) {
-        _existingFollowUps = List<Map<String, dynamic>>.from(data['followUps']);
-      }
-      // preload status if you want:
-      if (data['status'] != null) {
-        setState(() => _status = data['status'] as String);
-      }
-    }
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
   }
 
   Future<void> _selectDate() async {
@@ -68,36 +44,22 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
 
   Future<void> _submitFollowUp() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_followUpDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a follow-up date'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
 
     setState(() => _isSubmitting = true);
 
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(AccessToken.accessToken) ?? '';
-    final userId = prefs.getString('userId') ?? '';
 
-    final newEntry = {
-      'date': _followUpDate!.toIso8601String(),
+    final Map<String, dynamic> payload = {
       'note': _noteController.text.trim(),
-      'updatedBy': userId,
+      if (_followUpDate != null)
+        'followUpDate': _followUpDate!.toIso8601String(),
+      if (_status != null) 'status': _status,
     };
 
-    // combine existing + new follow-up entries
-    final combined = List<Map<String, dynamic>>.from(_existingFollowUps)
-      ..add(newEntry);
-
-    // include status in payload
-    final payload = {'followUps': combined, 'status': _status};
-
-    final uri = Uri.parse('${ApiConstants.baseUrl}/lead/${widget.leadId}');
+    final uri = Uri.parse(
+      '${ApiConstants.baseUrl}/lead/follow-up/${widget.leadId}',
+    );
     final response = await http.patch(
       uri,
       headers: {
@@ -106,8 +68,8 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
       },
       body: jsonEncode(payload),
     );
-    final result = jsonDecode(response.body);
 
+    final result = jsonDecode(response.body);
     if (response.statusCode == 200 && result['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -128,10 +90,64 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
     setState(() => _isSubmitting = false);
   }
 
-  @override
-  void dispose() {
-    _noteController.dispose();
-    super.dispose();
+  void _showSaveWarning() {
+    if (!_formKey.currentState!.validate()) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 8,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.warning, size: 48, color: Colors.amber),
+              const SizedBox(height: 16),
+              const Text(
+                'Are you sure you want to save this follow-up?',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.grey.shade400),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        _submitFollowUp();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text('Confirm'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -149,12 +165,12 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
           key: _formKey,
           child: Column(
             children: [
-              // Date picker
+              // Date picker (optional)
               GestureDetector(
                 onTap: _selectDate,
                 child: InputDecorator(
                   decoration: InputDecoration(
-                    labelText: 'Follow-Up Date',
+                    labelText: 'Follow-Up Date (optional)',
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
@@ -178,11 +194,11 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
 
               const SizedBox(height: 16),
 
-              // Progress note
+              // Progress note (required)
               TextFormField(
                 controller: _noteController,
                 decoration: InputDecoration(
-                  labelText: 'Progress Note',
+                  labelText: 'Progress Note *',
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
@@ -194,18 +210,18 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
                   ),
                 ),
                 maxLines: 4,
-                validator: (val) => val == null || val.trim().isEmpty
+                validator: (val) => (val == null || val.trim().isEmpty)
                     ? 'Please enter a note'
                     : null,
               ),
 
               const SizedBox(height: 16),
 
-              // Status dropdown
+              // Status dropdown (optional)
               DropdownButtonFormField<String>(
                 value: _status,
                 decoration: InputDecoration(
-                  labelText: 'Status',
+                  labelText: 'Status (optional)',
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
@@ -225,16 +241,15 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
                     )
                     .toList(),
                 onChanged: (val) => setState(() => _status = val),
-                validator: (val) => val == null ? 'Status is required' : null,
               ),
 
               const Spacer(),
 
-              // Save button
+              // Save button with confirmation dialog
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _isSubmitting ? null : _submitFollowUp,
+                  onPressed: _isSubmitting ? null : _showSaveWarning,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     backgroundColor: primaryColor,

@@ -32,7 +32,6 @@ class _LeadFormPageState extends State<LeadFormPage> {
   String? _district;
   String? _course;
   String? _source;
-  String? _status;
   DateTime? _enquiryDate;
   DateTime? _followUpDate;
   String _countryCode = '+91';
@@ -87,7 +86,6 @@ class _LeadFormPageState extends State<LeadFormPage> {
           _gender = data['gender'];
           _district = data['district'];
           _course = data['course'];
-          _status = data['status'];
           _source = data['source'];
           _enquiryDate = data['enquiryDate'] != null
               ? DateTime.tryParse(data['enquiryDate'])
@@ -134,7 +132,6 @@ class _LeadFormPageState extends State<LeadFormPage> {
       'place': _placeController.text.trim(),
       'district': _district,
       'course': _course,
-      'status': _status,
       'source': _source,
       'assignedTo': userId,
       'enquiryDate': _enquiryDate?.toIso8601String(),
@@ -390,15 +387,6 @@ class _LeadFormPageState extends State<LeadFormPage> {
                       ],
                       value: _course,
                       onChanged: (v) => setState(() => _course = v),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildDropdown(
-                      label: 'Status',
-                      items: ['new', 'in progress', 'hot', 'closed', 'lost'],
-                      value: _status,
-                      onChanged: (v) => setState(() => _status = v),
-                      validator: (val) =>
-                          val == null ? 'Status is required' : null,
                     ),
                     const SizedBox(height: 16),
                     _buildDropdown(
