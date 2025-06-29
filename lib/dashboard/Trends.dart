@@ -1,11 +1,11 @@
+// metrics + distribution builder
 import 'package:acculead_sales/dashboard/StatusDistributon.dart';
 import 'package:acculead_sales/utls/colors.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:fl_chart/fl_chart.dart';
 
 Widget buildMetricsForLeads(List<Map<String, dynamic>> leads) {
-  int total = leads.length;
+  final total = leads.length;
   int nNew = 0,
       nHot = 0,
       nNotConnected = 0,
@@ -18,10 +18,17 @@ Widget buildMetricsForLeads(List<Map<String, dynamic>> leads) {
   final monthStart = DateTime(now.year, now.month, 1);
   final todayStr = DateFormat('yyyy-MM-dd').format(now);
 
-  List<Map<String, dynamic>> followUpsToday = [];
-
   for (var lead in leads) {
-    final status = (lead['status'] ?? '').toString().toLowerCase();
+    // effective status from last follow-up or initial status
+    final followUps = lead['followUps'] as List<dynamic>? ?? [];
+    String status;
+    if (followUps.isNotEmpty) {
+      status =
+          followUps.last['status']?.toString().toLowerCase().trim() ?? 'new';
+    } else {
+      status = lead['status']?.toString().toLowerCase().trim() ?? 'new';
+    }
+
     switch (status) {
       case 'new':
         nNew++;
@@ -41,33 +48,24 @@ Widget buildMetricsForLeads(List<Map<String, dynamic>> leads) {
       case 'lost':
         nLost++;
         break;
-      default:
-        break;
     }
 
-    final dtStr = lead['enquiryDate']?.toString() ?? '';
-    final dt = DateTime.tryParse(dtStr);
+    final dt = DateTime.tryParse(lead['enquiryDate']?.toString() ?? '');
     if (dt != null &&
         dt.isAfter(monthStart.subtract(const Duration(seconds: 1)))) {
       nThisMonth++;
     }
-
-    final followUpDate = lead['followUpDate']?.toString() ?? '';
-    if (followUpDate.startsWith(todayStr)) {
-      followUpsToday.add(lead);
-    }
   }
 
-  final totDouble = total > 0 ? total.toDouble() : 1.0;
-
+  final totD = total > 0 ? total.toDouble() : 1.0;
   final statusPercentages = [
-    nNew / totDouble,
-    nHot / totDouble,
-    nNotConnected / totDouble,
-    nProg / totDouble,
-    nClosed / totDouble,
-    nLost / totDouble,
-  ];
+    nNew,
+    nHot,
+    nNotConnected,
+    nProg,
+    nClosed,
+    nLost,
+  ].map((c) => c / totD).toList();
   final statusLabels = [
     'new',
     'hot',
@@ -85,61 +83,59 @@ Widget buildMetricsForLeads(List<Map<String, dynamic>> leads) {
     Colors.grey,
   ];
   final statusCounts = [nNew, nHot, nNotConnected, nProg, nClosed, nLost];
-
-  final double conversionRate = total > 0 ? (nClosed / total) * 100 : 0.0;
+  final conversionRate = total > 0 ? (nClosed / total) * 100 : 0.0;
 
   return Padding(
     padding: const EdgeInsets.symmetric(horizontal: 12.0),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Stat cards in a responsive grid with smaller height
         GridView.count(
           crossAxisCount: 2,
-          childAspectRatio: 1.8, // makes each card shorter
+          childAspectRatio: 1.8,
           shrinkWrap: true,
           crossAxisSpacing: 8,
           mainAxisSpacing: 8,
           physics: const NeverScrollableScrollPhysics(),
           children: [
             _buildStatCard(
-              "Total",
+              'Total',
               total.toString(),
               Icons.list,
               Colors.blueAccent,
             ),
             _buildStatCard(
-              "New",
+              'New',
               nNew.toString(),
               Icons.fiber_new,
               Colors.green,
             ),
             _buildStatCard(
-              "Hot",
+              'Hot',
               nHot.toString(),
               Icons.whatshot,
               Colors.orange,
             ),
             _buildStatCard(
-              "Not Connected",
+              'Not Connected',
               nNotConnected.toString(),
               Icons.call_missed,
               Colors.blue,
             ),
             _buildStatCard(
-              "In Progress",
+              'In Progress',
               nProg.toString(),
               Icons.autorenew,
               Colors.purple,
             ),
             _buildStatCard(
-              "Closed",
+              'Closed',
               nClosed.toString(),
               Icons.check_circle,
               Colors.redAccent,
             ),
             _buildStatCard(
-              "Lost",
+              'Lost',
               nLost.toString(),
               Icons.remove_circle,
               Colors.grey,
@@ -151,8 +147,8 @@ Widget buildMetricsForLeads(List<Map<String, dynamic>> leads) {
           children: [
             Expanded(
               child: _buildMetricCard(
-                "Conversion",
-                "${conversionRate.toStringAsFixed(1)}%",
+                'Conversion',
+                '${conversionRate.toStringAsFixed(1)}%',
                 Icons.show_chart,
                 secondaryColor,
               ),
@@ -160,7 +156,7 @@ Widget buildMetricsForLeads(List<Map<String, dynamic>> leads) {
             const SizedBox(width: 8),
             Expanded(
               child: _buildMetricCard(
-                "This Month",
+                'This Month',
                 nThisMonth.toString(),
                 Icons.calendar_today,
                 Colors.teal,
@@ -171,7 +167,7 @@ Widget buildMetricsForLeads(List<Map<String, dynamic>> leads) {
         const SizedBox(height: 16),
         Center(
           child: Text(
-            "Status Distribution",
+            'Status Distribution',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
@@ -210,8 +206,7 @@ Widget _buildStatCard(String title, String value, IconData icon, Color color) {
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment:
-                MainAxisAlignment.center, // vertically center text
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
                 title.toUpperCase(),
@@ -257,7 +252,7 @@ Widget _buildMetricCard(
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center, // vertically center
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
                 title,

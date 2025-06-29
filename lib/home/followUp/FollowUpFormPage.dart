@@ -1,6 +1,7 @@
 // lib/pages/follow_up_form_page.dart
 
 import 'dart:convert';
+import 'package:acculead_sales/components/CustomAppBar2.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -100,60 +101,143 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
   void _showSaveWarning() {
     if (!_formKey.currentState!.validate()) return;
 
-    showDialog(
+    showGeneralDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        elevation: 8,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.warning, size: 48, color: Colors.amber),
-              const SizedBox(height: 16),
-              const Text(
-                'Are you sure you want to save this follow-up?',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(ctx).pop(),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: Colors.grey.shade400),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text('Cancel'),
+      barrierDismissible: true,
+      barrierLabel: "Confirm",
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (ctx, a1, a2) {
+        return Center(
+          child: Container(
+            width: MediaQuery.of(ctx).size.width * 0.85,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header bar
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade600,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(16),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.of(ctx).pop();
-                        _submitFollowUp();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: const Text('Confirm'),
+                  child: const Text(
+                    'Confirm Follow-Up',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      decoration: TextDecoration.none, // remove underline
                     ),
                   ),
-                ],
-              ),
-            ],
+                ),
+
+                const SizedBox(height: 12), // tightened
+                // Icon & message
+                Icon(
+                  Icons.warning_rounded,
+                  size: 48,
+                  color: Colors.amber.shade700,
+                ),
+                const SizedBox(height: 8),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    'Are you sure you want to save this follow-up?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 16,
+                      height: 1.4,
+                      decoration: TextDecoration.none, // remove underline
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Action buttons
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.of(ctx).pop(),
+                          style: TextButton.styleFrom(
+                            backgroundColor: Colors.grey.shade100,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            textStyle: const TextStyle(
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () {
+                            Navigator.of(ctx).pop();
+                            _submitFollowUp();
+                          },
+                          style: TextButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            textStyle: const TextStyle(
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                          child: const Text(
+                            'Confirm',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
+      transitionBuilder: (ctx, a1, a2, child) {
+        return FadeTransition(
+          opacity: CurvedAnimation(parent: a1, curve: Curves.easeOut),
+          child: ScaleTransition(
+            scale: CurvedAnimation(parent: a1, curve: Curves.easeOutBack),
+            child: child,
+          ),
+        );
+      },
     );
   }
 
@@ -161,11 +245,7 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Add Progress'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-      ),
+      appBar: CustomAppBar2(title: "Add Progress"),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Form(

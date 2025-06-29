@@ -21,7 +21,7 @@ class BottomNavBar extends StatefulWidget {
 
 class _BottomNavBarState extends State<BottomNavBar> {
   int _selectedIndex = 0;
-  int _newLeadsCount = 0;
+  int _noFollowUpCount = 0;
   int _newNotificationsCount = 0;
 
   static final List<Widget> _pages = [
@@ -34,11 +34,11 @@ class _BottomNavBarState extends State<BottomNavBar> {
   @override
   void initState() {
     super.initState();
-    _checkNewLeads();
+    _checkNoFollowUps();
     _checkNewNotifications();
   }
 
-  Future<void> _checkNewLeads() async {
+  Future<void> _checkNoFollowUps() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(AccessToken.accessToken) ?? '';
     final userId = prefs.getString('userId') ?? '';
@@ -61,9 +61,13 @@ class _BottomNavBarState extends State<BottomNavBar> {
         final leads = jsonBody['success'] == true
             ? (jsonBody['result'] as List)
             : [];
-        final count = leads.where((lead) => lead['status'] == 'new').length;
-        if (count != _newLeadsCount) {
-          setState(() => _newLeadsCount = count);
+        // count leads with null or empty followUps
+        final count = leads.where((lead) {
+          final fups = lead['followUps'];
+          return fups == null || (fups is List && fups.isEmpty);
+        }).length;
+        if (count != _noFollowUpCount) {
+          setState(() => _noFollowUpCount = count);
         }
       }
     } catch (_) {}
@@ -88,14 +92,11 @@ class _BottomNavBarState extends State<BottomNavBar> {
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body) as Map<String, dynamic>;
         if (body['success'] == true && body['result'] is List) {
-          // result already contains only unread notifications
           final unreadCount = (body['result'] as List).length;
           if (unreadCount != _newNotificationsCount) {
             setState(() => _newNotificationsCount = unreadCount);
           }
         }
-      } else {
-        debugPrint('Notifications API error: ${res.statusCode}');
       }
     } catch (e) {
       debugPrint('Error fetching notifications: $e');
@@ -105,7 +106,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
   void _onItemTapped(int index) {
     setState(() => _selectedIndex = index);
     // refresh badges whenever switching tabs
-    _checkNewLeads();
+    _checkNoFollowUps();
     _checkNewNotifications();
   }
 
@@ -115,7 +116,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
         clipBehavior: Clip.none,
         children: [
           Icon(iconData),
-          if (_newLeadsCount > 0)
+          if (_noFollowUpCount > 0)
             Positioned(
               top: -4,
               right: -6,
@@ -128,7 +129,7 @@ class _BottomNavBarState extends State<BottomNavBar> {
                 constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                 child: Center(
                   child: Text(
-                    '$_newLeadsCount',
+                    '$_noFollowUpCount',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 10,
@@ -218,4 +219,9 @@ class _BottomNavBarState extends State<BottomNavBar> {
       ),
     );
   }
+}
+
+extension StringCasingExtension on String {
+  String capitalize() =>
+      length > 0 ? '${this[0].toUpperCase()}${substring(1)}' : '';
 }

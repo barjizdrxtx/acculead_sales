@@ -1,6 +1,7 @@
 // lib/pages/lead_detail_page.dart
 
 import 'dart:convert';
+import 'package:acculead_sales/components/CustomAppBar2.dart';
 import 'package:acculead_sales/home/followUp/FollowUpFormPage.dart';
 import 'package:acculead_sales/home/lead/LeadFormPage.dart';
 import 'package:flutter/material.dart';
@@ -186,11 +187,8 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Lead Details'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-      ),
+      appBar: CustomAppBar2(title: "Lead Details"),
+
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : lead == null
@@ -251,17 +249,13 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
                   const Divider(height: 30),
 
                   // Lead fields
+                  _buildLabel('Enquiry Date', _formatDate(lead!['createdAt'])),
                   _buildLabel('Phone', lead!['phoneNumber']),
                   _buildLabel('Email', lead!['email']),
                   _buildLabel('Gender', lead!['gender']),
                   _buildLabel('Place', lead!['place']),
                   _buildLabel('District', lead!['district']),
                   _buildLabel('Course', lead!['course']),
-                  _buildLabel(
-                    'Enquiry Date',
-                    _formatDate(lead!['enquiryDate']),
-                  ),
-                  _buildLabel('Updated At', _formatDate(lead!['updatedAt'])),
                   _buildLabel('Source', lead!['source']),
                   const SizedBox(height: 20),
 
@@ -397,7 +391,7 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
         children: [
           FloatingActionButton(
             heroTag: 'addFollowUp',
-            backgroundColor: Colors.green,
+            backgroundColor: Colors.blue,
             onPressed: () async {
               final added = await Navigator.push<bool>(
                 context,
@@ -407,12 +401,12 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
               );
               if (added == true) fetchLead();
             },
-            child: const Icon(Icons.add, color: Colors.white),
+            child: const Icon(Icons.notes, color: Colors.white),
           ),
           const SizedBox(height: 12),
           FloatingActionButton(
             heroTag: 'editLead',
-            backgroundColor: Colors.blue,
+            backgroundColor: Colors.green,
             onPressed: () async {
               final updated = await Navigator.push<bool>(
                 context,
@@ -422,7 +416,7 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
               );
               if (updated == true) fetchLead();
             },
-            child: const Icon(Icons.edit, color: Colors.white),
+            child: const Icon(Icons.edit_outlined, color: Colors.white),
           ),
         ],
       ),

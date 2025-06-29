@@ -2,17 +2,17 @@
 
 import 'dart:convert';
 import 'package:acculead_sales/components/CustomAppBar.dart';
+import 'package:acculead_sales/dashboard/Trends.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:acculead_sales/dashboard/Trends.dart';
+import 'package:acculead_sales/dashboard/StatusDistributon.dart';
 import 'package:acculead_sales/utls/colors.dart';
-import '../utls/url.dart';
+import 'package:acculead_sales/utls/url.dart';
 
 class MainDashboardPage extends StatefulWidget {
   final String pageTitle;
-
   const MainDashboardPage({Key? key, this.pageTitle = 'Dashboard'})
     : super(key: key);
 
@@ -22,7 +22,7 @@ class MainDashboardPage extends StatefulWidget {
 
 class _MainDashboardPageState extends State<MainDashboardPage> {
   bool isLoading = true;
-  List<Map<String, dynamic>> leads = [];
+  List<Map<String, dynamic>> leadsData = [];
   late String _assigneeId;
 
   @override
@@ -35,15 +35,15 @@ class _MainDashboardPageState extends State<MainDashboardPage> {
     setState(() => isLoading = true);
     final prefs = await SharedPreferences.getInstance();
     _assigneeId = prefs.getString('userId') ?? '';
-    await _loadLeads();
+    await _fetchLeads();
   }
 
-  Future<void> _loadLeads() async {
+  Future<void> _fetchLeads() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(AccessToken.accessToken) ?? '';
     if (token.isEmpty) {
       setState(() {
-        leads = [];
+        leadsData = [];
         isLoading = false;
       });
       return;
@@ -62,12 +62,14 @@ class _MainDashboardPageState extends State<MainDashboardPage> {
       );
       final body = jsonDecode(response.body);
       if (response.statusCode == 200 && body['success'] == true) {
-        leads = List<Map<String, dynamic>>.from(body['result']);
+        leadsData = (body['result'] as List)
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
       } else {
-        leads = [];
+        leadsData = [];
       }
     } catch (_) {
-      leads = [];
+      leadsData = [];
     } finally {
       setState(() => isLoading = false);
     }
@@ -77,89 +79,74 @@ class _MainDashboardPageState extends State<MainDashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-
-      appBar: CustomAppBar(title: "Dashboard"),
+      appBar: CustomAppBar(title: widget.pageTitle),
       body: isLoading
-          // Skeleton loading UI
-          ? Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  // metrics skeleton row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: List.generate(3, (_) {
-                      return Expanded(
-                        child: Container(
-                          height: 80,
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade300,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                  const SizedBox(height: 24),
-                  // list skeleton
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: 5,
-                      itemBuilder: (_, __) => Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade300,
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Container(
-                                    height: 12,
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade300,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    height: 12,
-                                    width:
-                                        MediaQuery.of(context).size.width * 0.5,
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade300,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          // Actual content
+          ? _buildLoadingSkeleton()
           : RefreshIndicator(
-              onRefresh: _loadLeads,
+              onRefresh: _fetchLeads,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                child: buildMetricsForLeads(leads),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 16),
+                    buildMetricsForLeads(leadsData),
+                  ],
+                ),
               ),
             ),
+    );
+  }
+
+  Widget _buildLoadingSkeleton() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Row(
+            children: List.generate(2, (_) {
+              return Expanded(
+                child: Container(
+                  height: 100,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 16),
+          GridView.count(
+            crossAxisCount: 2,
+            childAspectRatio: 3,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            children: List.generate(
+              4,
+              (_) => Container(
+                height: 80,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            height: 200,
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+      ),
     );
   }
 }
