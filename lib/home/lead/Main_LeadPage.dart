@@ -1,3 +1,5 @@
+// lib/pages/main_lead_page.dart
+
 import 'dart:convert';
 import 'dart:io';
 import 'package:acculead_sales/home/lead/DetailPage.dart';
@@ -6,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:intl/intl.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -47,7 +48,6 @@ class _Main_LeadPageState extends State<Main_LeadPage>
   void initState() {
     super.initState();
 
-    // Tab controller for status
     _statusController =
         TabController(length: statusTabLabels.length, vsync: this)
           ..addListener(() {
@@ -58,35 +58,23 @@ class _Main_LeadPageState extends State<Main_LeadPage>
             }
           });
 
-    // Initialize notifications
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const initSettings = InitializationSettings(android: androidInit);
     _localNotifications.initialize(initSettings);
 
-    // Request permissions if needed
     _requestNotificationPermissions();
-
     _loadAssignee();
   }
 
   Future<void> _requestNotificationPermissions() async {
     if (Platform.isAndroid) {
-      // Android 13+ runtime notification permission
-      final status = await Permission.notification.request();
-      debugPrint('Android notification permission: $status');
+      await Permission.notification.request();
     } else if (Platform.isIOS) {
       final iosPlugin = _localNotifications
           .resolvePlatformSpecificImplementation<
             IOSFlutterLocalNotificationsPlugin
           >();
-      if (iosPlugin != null) {
-        final settings = await iosPlugin.requestPermissions(
-          alert: true,
-          badge: true,
-          sound: true,
-        );
-        debugPrint('iOS notification settings: $settings');
-      }
+      iosPlugin?.requestPermissions(alert: true, badge: true, sound: true);
     }
   }
 
@@ -120,13 +108,10 @@ class _Main_LeadPageState extends State<Main_LeadPage>
             ? (jsonBody['result'] as List)
             : [];
 
-        // NEW: check for any lead with isAlert == true
-        final alertLead = allLeads.firstWhere((lead) {
-          // some documents nest ObjectId in {"$oid": "..."}
-          final idField = lead['_id'];
-          // no matter how _id is formatted, just check the boolean:
-          return lead['isAlert'] == true;
-        }, orElse: () => null);
+        final alertLead = allLeads.firstWhere(
+          (lead) => lead['isAlert'] == true,
+          orElse: () => null,
+        );
         if (alertLead != null) {
           final name = alertLead['fullName'] ?? 'a lead';
           _showLocalNotification(
@@ -144,70 +129,7 @@ class _Main_LeadPageState extends State<Main_LeadPage>
     }
   }
 
-  String formatDate(String dateStr) {
-    final dt = DateTime.tryParse(dateStr);
-    return dt != null ? DateFormat('dd-MM-yyyy').format(dt) : '';
-  }
-
-  Future<void> _openAddLeadForm() async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const LeadFormPage()),
-    );
-    await _fetchLeads();
-  }
-
-  Color _getAvatarColor(String status) {
-    switch (status) {
-      case 'new':
-        return Colors.green;
-      case 'hot':
-        return Colors.orange;
-      case 'not connected':
-        return Colors.blue;
-      case 'in progress':
-        return Colors.purple;
-      case 'closed':
-        return Colors.red;
-      case 'lost':
-        return Colors.grey;
-      default:
-        return Colors.grey.shade400;
-    }
-  }
-
-  Future<void> _makePhoneCall(String phone) async {
-    if (phone.isNotEmpty) {
-      await FlutterPhoneDirectCaller.callNumber(phone);
-    }
-  }
-
-  Future<void> _openWhatsApp(String phone) async {
-    // Strip out any non-digits
-    final digits = phone.replaceAll(RegExp(r'\D'), '');
-    // If it's already more than 10 digits, assume it includes country code
-    final phoneWithCountry = digits.length > 10 ? '+$digits' : '+91$digits';
-
-    final native = Uri.parse('whatsapp://send?phone=$phoneWithCountry');
-    final web = Uri.parse(
-      'https://api.whatsapp.com/send?phone=$phoneWithCountry',
-    );
-
-    try {
-      // Try the native URI first, fall back to web
-      if (!await launchUrl(native, mode: LaunchMode.externalApplication)) {
-        if (!await launchUrl(web, mode: LaunchMode.externalApplication)) {
-          throw 'Could not launch WhatsApp';
-        }
-      }
-    } catch (_) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Could not open WhatsApp')));
-    }
-  }
-
-  Future<void> _showLocalNotification(String title, String body) async {
+  void _showLocalNotification(String title, String body) async {
     const androidDetails = AndroidNotificationDetails(
       'lead_channel',
       'Lead Notifications',
@@ -219,34 +141,88 @@ class _Main_LeadPageState extends State<Main_LeadPage>
     await _localNotifications.show(0, title, body, platformDetails);
   }
 
-  List<dynamic> get _filteredLeads => allLeads.where((lead) {
-    if (activeStatus != 'All' && lead['status'] != activeStatus) {
-      return false;
+  String _effectiveStatus(Map<String, dynamic> lead) {
+    final followUps = lead['followUps'] as List<dynamic>? ?? [];
+    if (followUps.isNotEmpty) {
+      return followUps.last['status']?.toString().toLowerCase().trim() ?? 'new';
     }
-    final q = searchQuery.toLowerCase();
-    final name = (lead['fullName'] ?? '').toString().toLowerCase();
-    final phone = (lead['phoneNumber'] ?? '').toString().toLowerCase();
-    if (!name.contains(q) && !phone.contains(q)) {
-      return false;
-    }
-    if (selectedDateRange != null) {
-      final d = DateTime.tryParse(lead['enquiryDate'] ?? '');
-      if (d == null ||
-          d.isBefore(selectedDateRange!.start) ||
-          d.isAfter(selectedDateRange!.end)) {
+    return (lead['status']?.toString().toLowerCase().trim() ?? 'new');
+  }
+
+  List<dynamic> get _filteredLeads {
+    return allLeads.where((lead) {
+      final statusVal = _effectiveStatus(lead);
+      if (activeStatus != 'All' && statusVal != activeStatus) {
         return false;
       }
-    }
-    return true;
-  }).toList();
+      final q = searchQuery.toLowerCase();
+      final name = (lead['fullName'] ?? '').toString().toLowerCase();
+      final phone = (lead['phoneNumber'] ?? '').toString().toLowerCase();
+      if (!name.contains(q) && !phone.contains(q)) return false;
+      if (selectedDateRange != null) {
+        final d = DateTime.tryParse(lead['enquiryDate'] ?? '');
+        if (d == null ||
+            d.isBefore(selectedDateRange!.start) ||
+            d.isAfter(selectedDateRange!.end)) {
+          return false;
+        }
+      }
+      return true;
+    }).toList();
+  }
 
-  Future<void> _pickDateRange() async {
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2022),
-      lastDate: DateTime(2100),
+  Map<String, int> get _statusCounts {
+    final counts = {for (var s in statusTabLabels) s: 0};
+    for (var lead in allLeads) {
+      final statusVal = _effectiveStatus(lead);
+      if (counts.containsKey(statusVal))
+        counts[statusVal] = counts[statusVal]! + 1;
+      counts['All'] = counts['All']! + 1;
+    }
+    return counts;
+  }
+
+  Future<void> _openAddLeadForm() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const LeadFormPage()),
     );
-    if (picked != null) setState(() => selectedDateRange = picked);
+    await _fetchLeads();
+  }
+
+  Future<void> _makePhoneCall(String phone) async {
+    if (phone.isNotEmpty) await FlutterPhoneDirectCaller.callNumber(phone);
+  }
+
+  Future<void> _openWhatsApp(String phone) async {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    final phoneWithCountry = digits.length > 10 ? '+$digits' : '+91$digits';
+    final native = Uri.parse('whatsapp://send?phone=$phoneWithCountry');
+    final web = Uri.parse(
+      'https://api.whatsapp.com/send?phone=$phoneWithCountry',
+    );
+    if (!await launchUrl(native, mode: LaunchMode.externalApplication)) {
+      await launchUrl(web, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Color _getAvatarColor(String status) {
+    switch (status) {
+      case 'new':
+        return Colors.green;
+      case 'hot':
+        return Colors.orange;
+      case 'not connected':
+        return Colors.grey;
+      case 'in progress':
+        return Colors.blue;
+      case 'closed':
+        return Colors.grey.shade600;
+      case 'lost':
+        return Colors.red;
+      default:
+        return Colors.grey.shade400;
+    }
   }
 
   @override
@@ -258,6 +234,8 @@ class _Main_LeadPageState extends State<Main_LeadPage>
   @override
   Widget build(BuildContext context) {
     final leads = _filteredLeads;
+    final counts = _statusCounts;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -275,14 +253,28 @@ class _Main_LeadPageState extends State<Main_LeadPage>
         bottom: TabBar(
           controller: _statusController,
           isScrollable: true,
-          labelColor: Colors.blue,
-          unselectedLabelColor: Colors.black54,
-          tabs: statusTabLabels.map((e) => Tab(text: e.capitalize())).toList(),
+          indicatorColor: _getAvatarColor(
+            activeStatus,
+          ), // dynamic underline color
+          labelColor: Colors.black, // selected label text
+          unselectedLabelColor: Colors.black54, // unselected text
+          tabs: statusTabLabels.map((label) {
+            final cap = label.capitalize();
+            final count = counts[label] ?? 0;
+            return Tab(text: '$cap ($count)');
+          }).toList(),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.date_range),
-            onPressed: _pickDateRange,
+            onPressed: () async {
+              final picked = await showDateRangePicker(
+                context: context,
+                firstDate: DateTime(2022),
+                lastDate: DateTime(2100),
+              );
+              if (picked != null) setState(() => selectedDateRange = picked);
+            },
           ),
           IconButton(
             icon: const Icon(Icons.clear_all),
@@ -331,21 +323,28 @@ class _Main_LeadPageState extends State<Main_LeadPage>
                         final fullName = (lead['fullName'] ?? '').toString();
                         final phoneNumber = (lead['phoneNumber'] ?? '')
                             .toString();
-                        final status = (lead['status'] ?? '').toString();
+
+                        final rawId = lead['_id'];
+                        final leadId =
+                            rawId is Map && rawId.containsKey('\$oid')
+                            ? rawId['\$oid']
+                            : rawId.toString();
+
+                        final statusVal = _effectiveStatus(lead);
                         final initial = fullName.isNotEmpty
                             ? fullName[0].toUpperCase()
                             : '?';
 
                         return ListTile(
                           leading: CircleAvatar(
-                            backgroundColor: _getAvatarColor(status),
+                            backgroundColor: _getAvatarColor(statusVal),
                             child: Text(
                               initial,
                               style: const TextStyle(color: Colors.white),
                             ),
                           ),
                           title: Text(
-                            fullName.trim().isNotEmpty ? fullName : 'No Name',
+                            fullName.isNotEmpty ? fullName : 'No Name',
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
@@ -356,18 +355,18 @@ class _Main_LeadPageState extends State<Main_LeadPage>
                             children: [
                               const SizedBox(height: 5),
                               Text(phoneNumber),
-                              const SizedBox(height: 10),
+                              const SizedBox(height: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
                                   vertical: 2,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: _getAvatarColor(status),
+                                  color: _getAvatarColor(statusVal),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Text(
-                                  status.capitalize(),
+                                  statusVal.capitalize(),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 12,
@@ -380,43 +379,28 @@ class _Main_LeadPageState extends State<Main_LeadPage>
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              // Call
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(30),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.call,
+                                  color: Colors.blue,
                                 ),
-                                child: IconButton(
-                                  icon: const Icon(
-                                    Icons.call,
-                                    color: Colors.blue,
-                                  ),
-                                  onPressed: () => _makePhoneCall(phoneNumber),
-                                ),
+                                onPressed: () => _makePhoneCall(phoneNumber),
                               ),
                               const SizedBox(width: 8),
-                              // WhatsApp
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.green.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(30),
+                              IconButton(
+                                icon: Image.asset(
+                                  'assets/whatsapp.png',
+                                  width: 24,
+                                  height: 24,
                                 ),
-                                child: IconButton(
-                                  icon: Image.asset(
-                                    'assets/whatsapp.png',
-                                    width: 24,
-                                    height: 24,
-                                  ),
-                                  onPressed: () => _openWhatsApp(phoneNumber),
-                                ),
+                                onPressed: () => _openWhatsApp(phoneNumber),
                               ),
-                              const SizedBox(width: 8),
                             ],
                           ),
                           onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => LeadDetailPage(id: lead['_id']),
+                              builder: (_) => LeadDetailPage(id: leadId),
                             ),
                           ).then((_) => _fetchLeads()),
                         );

@@ -136,6 +136,7 @@ class _LeadFormPageState extends State<LeadFormPage> {
       'assignedTo': userId,
       'enquiryDate': _enquiryDate?.toIso8601String(),
       'followUps': followUps,
+      'createdBy': userId,
     };
 
     try {

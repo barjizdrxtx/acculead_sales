@@ -24,7 +24,14 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
   String? _status;
   bool _isSubmitting = false;
 
-  final List<String> _statusOptions = ['in progress', 'hot', 'closed', 'lost'];
+  final List<String> _statusOptions = [
+    'new',
+    'in progress',
+    'hot',
+    'closed',
+    'lost',
+    'not connected',
+  ];
 
   @override
   void dispose() {
@@ -50,11 +57,11 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString(AccessToken.accessToken) ?? '';
 
-    final Map<String, dynamic> payload = {
+    final payload = {
       'note': _noteController.text.trim(),
+      'status': _status!,
       if (_followUpDate != null)
         'followUpDate': _followUpDate!.toIso8601String(),
-      if (_status != null) 'status': _status,
     };
 
     final uri = Uri.parse(
@@ -183,7 +190,7 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
                   ),
                   child: Text(
                     _followUpDate == null
-                        ? 'Select Date'
+                        ? 'Select date'
                         : DateFormat('dd-MM-yyyy').format(_followUpDate!),
                     style: TextStyle(
                       color: _followUpDate == null ? Colors.grey : Colors.black,
@@ -217,11 +224,11 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
 
               const SizedBox(height: 16),
 
-              // Status dropdown (optional)
+              // Status dropdown (required)
               DropdownButtonFormField<String>(
                 value: _status,
                 decoration: InputDecoration(
-                  labelText: 'Status (optional)',
+                  labelText: 'Status *',
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
@@ -241,6 +248,8 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
                     )
                     .toList(),
                 onChanged: (val) => setState(() => _status = val),
+                validator: (val) =>
+                    val == null ? 'Please select a status' : null,
               ),
 
               const Spacer(),

@@ -59,17 +59,21 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
         'Authorization': 'Bearer $token',
       },
     );
+
     if (response.statusCode == 200) {
       final data = json.decode(response.body)['result'];
       final List followUps = data['followUps'] ?? [];
+      // if no follow-ups, default status to 'new'
       final lastStatus = followUps.isNotEmpty
           ? (followUps.last['status']?.toString().toLowerCase().trim() ?? '')
-          : (data['status'] ?? '').toString().toLowerCase().trim();
+          : 'new';
+
       setState(() {
         lead = data;
         status = lastStatus;
       });
     }
+
     setState(() => isLoading = false);
   }
 
@@ -89,6 +93,7 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
       },
       body: jsonEncode({'status': newStatus}),
     );
+
     if (response.statusCode == 200) {
       await fetchLead();
       setState(() {
@@ -194,7 +199,7 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
               padding: const EdgeInsets.all(20),
               child: ListView(
                 children: [
-                  // Header with name and current status
+                  // Header: avatar, name, current status
                   Row(
                     children: [
                       CircleAvatar(
@@ -244,7 +249,8 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
                     ],
                   ),
                   const Divider(height: 30),
-                  // Lead details
+
+                  // Lead fields
                   _buildLabel('Phone', lead!['phoneNumber']),
                   _buildLabel('Email', lead!['email']),
                   _buildLabel('Gender', lead!['gender']),
@@ -258,6 +264,8 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
                   _buildLabel('Updated At', _formatDate(lead!['updatedAt'])),
                   _buildLabel('Source', lead!['source']),
                   const SizedBox(height: 20),
+
+                  // Follow-up history
                   if (followUps.isNotEmpty) ...[
                     const Divider(height: 30),
                     Text(
@@ -273,6 +281,7 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
                       final fu = entry.value;
                       final fuStatus =
                           fu['status']?.toString().toLowerCase().trim() ?? '';
+
                       return Container(
                         margin: const EdgeInsets.symmetric(vertical: 6),
                         padding: const EdgeInsets.all(12),
@@ -284,10 +293,9 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // 1. Serial number, Created date & Status pill
+                            // Serial, created date, status
                             Row(
                               children: [
-                                // Serial number bubble
                                 Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: const BoxDecoration(
@@ -304,7 +312,6 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                // Created date text
                                 Text(
                                   'Created: ${_formatDate(fu['createdAt']?.toString())}',
                                   style: const TextStyle(
@@ -314,7 +321,6 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
                                   ),
                                 ),
                                 const Spacer(),
-                                // Status pill
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
@@ -335,10 +341,8 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
                                 ),
                               ],
                             ),
-
                             const SizedBox(height: 6),
-
-                            // 2. Next follow-up line
+                            // Next follow-up
                             Text(
                               'Next follow-up: ${_formatDate(fu['followUpDate']?.toString())}',
                               style: const TextStyle(
@@ -347,10 +351,8 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
                                 color: Colors.green,
                               ),
                             ),
-
                             const SizedBox(height: 12),
-
-                            // 3. Note block with heading
+                            // Note block
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.all(12),
