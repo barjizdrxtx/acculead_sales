@@ -207,63 +207,41 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
                     ],
                   ),
                   const Divider(height: 30),
-                  const Text(
-                    'Status',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _statusBgColor(status),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      statusDisplayMap[status] ?? 'N/A',
-                      style: TextStyle(
-                        color: _statusTextColor(status),
-                        fontWeight: FontWeight.bold,
+
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Status',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    value: status.isNotEmpty ? status : null,
-                    items: statusDisplayMap.entries
-                        .map(
-                          (e) => DropdownMenuItem(
-                            value: e.key,
-                            child: Text(e.value),
+                      const SizedBox(width: 8), // ← add spacing here
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _statusBgColor(status),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          statusDisplayMap[status] ?? 'N/A',
+                          style: TextStyle(
+                            color: _statusTextColor(status),
+                            fontWeight: FontWeight.bold,
                           ),
-                        )
-                        .toList(),
-                    decoration: InputDecoration(
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 10,
-                        horizontal: 12,
+                        ),
                       ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    onChanged: isUpdatingStatus
-                        ? null
-                        : (v) =>
-                              v != null && v != status ? updateStatus(v) : null,
+                    ],
                   ),
-                  if (isUpdatingStatus) ...[
-                    const SizedBox(height: 10),
-                    LinearProgressIndicator(value: progress),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'Updating status...',
-                      style: TextStyle(color: Colors.blueAccent),
-                    ),
-                  ],
-                  const Divider(height: 30),
+
+                  const SizedBox(height: 12),
+
+          
                   _buildLabel('Phone', lead!['phoneNumber']),
                   _buildLabel('Email', lead!['email']),
                   _buildLabel('Gender', lead!['gender']),
@@ -276,7 +254,6 @@ class _LeadDetailPageState extends State<LeadDetailPage> {
                   ),
                   _buildLabel('Updated At', _formatDate(lead!['updatedAt'])),
                   _buildLabel('Source', lead!['source']),
-                  _buildLabel('Assigned To', lead!['assignedTo']),
                   const SizedBox(height: 20),
                   if (lead!['followUps'] != null &&
                       (lead!['followUps'] as List).isNotEmpty) ...[

@@ -1,6 +1,7 @@
 // lib/pages/lead_form_page.dart
 
 import 'dart:convert';
+import 'package:acculead_sales/components/CustomAppBar2.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -282,10 +283,8 @@ class _LeadFormPageState extends State<LeadFormPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: Text(widget.leadId != null ? 'Edit Lead' : 'Add New Lead'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+      appBar: CustomAppBar2(
+        title: widget.leadId != null ? 'Edit Lead' : 'Add New Lead',
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())

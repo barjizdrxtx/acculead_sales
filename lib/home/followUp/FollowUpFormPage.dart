@@ -21,8 +21,11 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
   final _formKey = GlobalKey<FormState>();
   DateTime? _followUpDate;
   final TextEditingController _noteController = TextEditingController();
+  String? _status;
   bool _isSubmitting = false;
   List<Map<String, dynamic>> _existingFollowUps = [];
+
+  final List<String> _statusOptions = ['in progress', 'hot', 'closed', 'lost'];
 
   @override
   void initState() {
@@ -46,6 +49,10 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
       if (data['followUps'] != null && data['followUps'] is List) {
         _existingFollowUps = List<Map<String, dynamic>>.from(data['followUps']);
       }
+      // preload status if you want:
+      if (data['status'] != null) {
+        setState(() => _status = data['status'] as String);
+      }
     }
   }
 
@@ -60,7 +67,17 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
   }
 
   Future<void> _submitFollowUp() async {
-    if (_followUpDate == null || _noteController.text.trim().isEmpty) return;
+    if (!_formKey.currentState!.validate()) return;
+    if (_followUpDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a follow-up date'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     final prefs = await SharedPreferences.getInstance();
@@ -73,10 +90,12 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
       'updatedBy': userId,
     };
 
+    // combine existing + new follow-up entries
     final combined = List<Map<String, dynamic>>.from(_existingFollowUps)
       ..add(newEntry);
 
-    final payload = {'followUps': combined};
+    // include status in payload
+    final payload = {'followUps': combined, 'status': _status};
 
     final uri = Uri.parse('${ApiConstants.baseUrl}/lead/${widget.leadId}');
     final response = await http.patch(
@@ -118,7 +137,7 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-            backgroundColor: Colors.white,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Add Progress'),
         backgroundColor: Colors.white,
@@ -126,13 +145,44 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            GestureDetector(
-              onTap: _selectDate,
-              child: InputDecorator(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              // Date picker
+              GestureDetector(
+                onTap: _selectDate,
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: 'Follow-Up Date',
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  child: Text(
+                    _followUpDate == null
+                        ? 'Select Date'
+                        : DateFormat('dd-MM-yyyy').format(_followUpDate!),
+                    style: TextStyle(
+                      color: _followUpDate == null ? Colors.grey : Colors.black,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Progress note
+              TextFormField(
+                controller: _noteController,
                 decoration: InputDecoration(
-                  labelText: 'Follow-Up Date',
+                  labelText: 'Progress Note',
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
@@ -143,52 +193,63 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
                     vertical: 12,
                   ),
                 ),
-                child: Text(
-                  _followUpDate == null
-                      ? 'Select Date'
-                      : DateFormat('dd-MM-yyyy').format(_followUpDate!),
-                  style: TextStyle(
-                    color: _followUpDate == null ? Colors.grey : Colors.black,
-                  ),
-                ),
+                maxLines: 4,
+                validator: (val) => val == null || val.trim().isEmpty
+                    ? 'Please enter a note'
+                    : null,
               ),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _noteController,
-              decoration: InputDecoration(
-                labelText: 'Progress Note',
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-              ),
-              maxLines: 4,
-            ),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isSubmitting ? null : _submitFollowUp,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  backgroundColor: primaryColor,
-                  shape: RoundedRectangleBorder(
+
+              const SizedBox(height: 16),
+
+              // Status dropdown
+              DropdownButtonFormField<String>(
+                value: _status,
+                decoration: InputDecoration(
+                  labelText: 'Status',
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
                 ),
-                child: Text(
-                  _isSubmitting ? 'Saving...' : 'Save Progress',
-                  style: const TextStyle(fontSize: 16, color: Colors.white),
+                items: _statusOptions
+                    .map(
+                      (s) => DropdownMenuItem(
+                        value: s,
+                        child: Text(s[0].toUpperCase() + s.substring(1)),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (val) => setState(() => _status = val),
+                validator: (val) => val == null ? 'Status is required' : null,
+              ),
+
+              const Spacer(),
+
+              // Save button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isSubmitting ? null : _submitFollowUp,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    backgroundColor: primaryColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    _isSubmitting ? 'Saving...' : 'Save Progress',
+                    style: const TextStyle(fontSize: 16, color: Colors.white),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
