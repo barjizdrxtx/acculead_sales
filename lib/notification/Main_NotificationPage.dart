@@ -87,7 +87,7 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
     try {
       // Use the same base URL as your API but with https
       _socket = IO.io(
-        "api.acculeadinternational.com/notifications",
+        "api.acculeadinternational.com/",
         IO.OptionBuilder()
             .setTransports(['websocket']) // use WebSocket only
             .enableAutoConnect() // auto connect

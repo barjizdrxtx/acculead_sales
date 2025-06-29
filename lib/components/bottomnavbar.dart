@@ -9,7 +9,6 @@ import 'package:http/http.dart' as http;
 import 'package:acculead_sales/dashboard/Main_DashboardPage.dart';
 import 'package:acculead_sales/home/followUp/Main_FollowUpsPage.dart';
 import 'package:acculead_sales/home/lead/Main_LeadPage.dart';
-import 'package:acculead_sales/profile/Main_Profile.dart';
 import 'package:acculead_sales/utls/colors.dart';
 import 'package:acculead_sales/utls/url.dart';
 
