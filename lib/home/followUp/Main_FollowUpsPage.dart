@@ -1,7 +1,6 @@
-// lib/pages/today_followup_page.dart
-
 import 'dart:convert';
 import 'package:acculead_sales/components/CustomAppBar.dart';
+import 'package:acculead_sales/home/followUp/FollowUpFormPage.dart';
 import 'package:acculead_sales/home/followUp/UpdateFollowUp.dart';
 import 'package:acculead_sales/home/lead/DetailPage.dart';
 import 'package:flutter/material.dart';
@@ -35,13 +34,13 @@ class _MainFollowUpsPageState extends State<MainFollowUpsPage> {
       case 'hot':
         return Colors.orange;
       case 'not connected':
-        return Colors.blue;
-      case 'in progress':
-        return Colors.purple;
-      case 'closed':
-        return Colors.red;
-      case 'lost':
         return Colors.grey;
+      case 'in progress':
+        return Colors.blue;
+      case 'closed':
+        return Colors.grey.shade600;
+      case 'lost':
+        return Colors.red;
       default:
         return Colors.grey.shade400;
     }
@@ -81,13 +80,13 @@ class _MainFollowUpsPageState extends State<MainFollowUpsPage> {
       'yyyy-MM-dd',
     ).format(DateTime.now().toUtc().add(const Duration(hours: 5, minutes: 30)));
 
-    final matches = allLeads.where((lead) {
+    todayLeads = allLeads.where((lead) {
       final fus = lead['followUps'];
       if (fus is! List || fus.isEmpty) return false;
 
       final dates = fus
           .map((fu) {
-            final raw = fu['date']?.toString();
+            final raw = fu['followUpDate']?.toString();
             if (raw == null) return null;
             return DateTime.tryParse(
               raw,
@@ -102,58 +101,43 @@ class _MainFollowUpsPageState extends State<MainFollowUpsPage> {
     }).toList();
 
     setState(() {
-      todayLeads = matches;
       isLoading = false;
     });
   }
 
   Widget _buildLeadCard(Map<String, dynamic> lead) {
+    final times = <String>[];
     final todayStr = DateFormat(
       'yyyy-MM-dd',
     ).format(DateTime.now().toUtc().add(const Duration(hours: 5, minutes: 30)));
 
-    final times = <String>[];
     for (var fu in (lead['followUps'] as List)) {
-      final raw = fu['date']?.toString();
-      final parsed = raw == null
+      final raw = fu['followUpDate']?.toString();
+      final dt = raw == null
           ? null
           : DateTime.tryParse(
               raw,
             )?.toUtc().add(const Duration(hours: 5, minutes: 30));
-      if (parsed != null &&
-          DateFormat('yyyy-MM-dd').format(parsed) == todayStr) {
-        times.add(DateFormat('hh:mm a').format(parsed));
+      if (dt != null && DateFormat('yyyy-MM-dd').format(dt) == todayStr) {
+        times.add(DateFormat('hh:mm a').format(dt));
       }
     }
 
-    Future<void> _makePhoneCall(String phone) async {
-      if (phone.isNotEmpty) {
-        await FlutterPhoneDirectCaller.callNumber(phone);
-      }
+    Future<void> call(String phone) async {
+      if (phone.isNotEmpty) await FlutterPhoneDirectCaller.callNumber(phone);
     }
 
-    Future<void> _openWhatsApp(String phone) async {
-      // Strip out any non-digits
+    Future<void> whatsapp(String phone) async {
       final digits = phone.replaceAll(RegExp(r'\D'), '');
-      // If it's already more than 10 digits, assume it includes country code
-      final phoneWithCountry = digits.length > 10 ? '+$digits' : '+91$digits';
-
-      final native = Uri.parse('whatsapp://send?phone=$phoneWithCountry');
-      final web = Uri.parse(
-        'https://api.whatsapp.com/send?phone=$phoneWithCountry',
-      );
-
-      try {
-        // Try the native URI first, fall back to web
-        if (!await launchUrl(native, mode: LaunchMode.externalApplication)) {
-          if (!await launchUrl(web, mode: LaunchMode.externalApplication)) {
-            throw 'Could not launch WhatsApp';
-          }
+      final ph = digits.length > 10 ? '+$digits' : '+91$digits';
+      final native = Uri.parse('whatsapp://send?phone=$ph');
+      if (!await launchUrl(native, mode: LaunchMode.externalApplication)) {
+        final web = Uri.parse('https://api.whatsapp.com/send?phone=$ph');
+        if (!await launchUrl(web, mode: LaunchMode.externalApplication)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open WhatsApp')),
+          );
         }
-      } catch (_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open WhatsApp')),
-        );
       }
     }
 
@@ -161,100 +145,157 @@ class _MainFollowUpsPageState extends State<MainFollowUpsPage> {
     final phone = lead['phoneNumber'] ?? '-';
     final status = lead['status'] ?? '-';
     final id = lead['_id']?.toString() ?? '';
+    final history = (lead['followUps'] as List).cast<Map<String, dynamic>>();
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 6),
-        ],
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => Navigator.push(
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => LeadDetailPage(id: id)),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 8),
+          ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          height: 1.3,
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    status.toUpperCase(),
-                    style: TextStyle(color: Colors.blue.shade700),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.call, color: Colors.blue),
-                      onPressed: () => _makePhoneCall(phone),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: IconButton(
-                      icon: Image.asset(
-                        'assets/whatsapp.png',
-                        width: 24,
-                        height: 24,
+                      const SizedBox(height: 4),
+                      Text(
+                        phone,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade700,
+                        ),
                       ),
-                      onPressed: () => _openWhatsApp(phone),
-                    ),
+                    ],
                   ),
-                ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.call, color: Colors.blue),
+                  onPressed: () => call(phone),
+                ),
+                IconButton(
+                  icon: Image.asset(
+                    'assets/whatsapp.png',
+                    width: 24,
+                    height: 24,
+                  ),
+                  onPressed: () => whatsapp(phone),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (history.isNotEmpty) ...[
+              const Text(
+                'History',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
               ),
+              const Divider(),
+              ...history.map((fu) {
+                final raw = fu['followUpDate'] ?? fu['createdAt'];
+                final dt = raw != null
+                    ? DateTime.tryParse(
+                        raw.toString(),
+                      )?.toUtc().add(const Duration(hours: 5, minutes: 30))
+                    : null;
+                final txt = dt != null
+                    ? DateFormat('dd MMM, yyyy – hh:mm a').format(dt)
+                    : '-';
+                final note = fu['note'] ?? '-';
+                final st = fu['status'] ?? '-';
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        margin: const EdgeInsets.only(top: 4),
+                        decoration: BoxDecoration(
+                          color: _getAvatarColor(st),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              txt,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '$st • $note',
+                              style: const TextStyle(fontSize: 13, height: 1.4),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
               const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton.icon(
-                  onPressed: () async {
-                    final updated = await showAddFollowUpSheet(context, id);
-                    if (updated == true) {
-                      await fetchTodayFollowups();
-                    }
-                  },
-                  icon: const Icon(Icons.add_task),
-                  label: const Text('Add Follow-Up'),
-                  style: ElevatedButton.styleFrom(
-                    elevation: 0,
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+            ],
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FollowUpFormPage(leadId: id),
                     ),
+                  );
+                },
+                icon: const Icon(Icons.add_task, size: 22, color: Colors.white),
+                label: const Text(
+                  'Add Progress',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  elevation: 4,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -262,47 +303,32 @@ class _MainFollowUpsPageState extends State<MainFollowUpsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final displayDate = DateFormat(
-      'dd MMM, yyyy',
-    ).format(DateTime.now().toUtc().add(const Duration(hours: 5, minutes: 30)));
-
     return Scaffold(
+      appBar: CustomAppBar(title: "Today's Follow-Up"),
       backgroundColor: Colors.white,
-      appBar: CustomAppBar(title: "Today's FollowUp"),
-      body: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            color: Colors.teal.shade50,
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-            child: Text(
-              displayDate,
-              style: const TextStyle(color: Colors.teal, fontSize: 16),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : todayLeads.isEmpty
+          ? Center(
+              child: Text(
+                'No follow-ups today.',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: fetchTodayFollowups,
+              child: ListView.separated(
+                padding: const EdgeInsets.all(8),
+                itemCount: todayLeads.length,
+                itemBuilder: (_, i) => _buildLeadCard(todayLeads[i]),
+                separatorBuilder: (_, __) => Divider(
+                  color: Colors.grey.shade300,
+                  thickness: 1,
+                  indent: 16,
+                  endIndent: 16,
+                ),
+              ),
             ),
-          ),
-          Expanded(
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : todayLeads.isEmpty
-                ? Center(
-                    child: Text(
-                      'No follow-ups today.',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 16,
-                      ),
-                    ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: fetchTodayFollowups,
-                    child: ListView.builder(
-                      itemCount: todayLeads.length,
-                      itemBuilder: (_, i) => _buildLeadCard(todayLeads[i]),
-                    ),
-                  ),
-          ),
-        ],
-      ),
     );
   }
 }
