@@ -6,11 +6,9 @@ import 'package:acculead_sales/home/lead/DetailPage.dart';
 import 'package:acculead_sales/home/lead/LeadFormPage.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../utls/url.dart';
 
 class Main_LeadPage extends StatefulWidget {
@@ -41,13 +39,9 @@ class _Main_LeadPageState extends State<Main_LeadPage>
     'lost',
   ];
 
-  final FlutterLocalNotificationsPlugin _localNotifications =
-      FlutterLocalNotificationsPlugin();
-
   @override
   void initState() {
     super.initState();
-
     _statusController =
         TabController(length: statusTabLabels.length, vsync: this)
           ..addListener(() {
@@ -57,25 +51,7 @@ class _Main_LeadPageState extends State<Main_LeadPage>
               );
             }
           });
-
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initSettings = InitializationSettings(android: androidInit);
-    _localNotifications.initialize(initSettings);
-
-    _requestNotificationPermissions();
     _loadAssignee();
-  }
-
-  Future<void> _requestNotificationPermissions() async {
-    if (Platform.isAndroid) {
-      await Permission.notification.request();
-    } else if (Platform.isIOS) {
-      final iosPlugin = _localNotifications
-          .resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin
-          >();
-      iosPlugin?.requestPermissions(alert: true, badge: true, sound: true);
-    }
   }
 
   Future<void> _loadAssignee() async {
@@ -107,18 +83,6 @@ class _Main_LeadPageState extends State<Main_LeadPage>
         allLeads = jsonBody['success'] == true
             ? (jsonBody['result'] as List)
             : [];
-
-        final alertLead = allLeads.firstWhere(
-          (lead) => lead['isAlert'] == true,
-          orElse: () => null,
-        );
-        if (alertLead != null) {
-          final name = alertLead['fullName'] ?? 'a lead';
-          _showLocalNotification(
-            '🚨 Lead Alert',
-            'Attention: "$name" is marked urgent.',
-          );
-        }
       } else {
         allLeads = [];
       }
@@ -127,18 +91,6 @@ class _Main_LeadPageState extends State<Main_LeadPage>
     } finally {
       setState(() => isLoading = false);
     }
-  }
-
-  void _showLocalNotification(String title, String body) async {
-    const androidDetails = AndroidNotificationDetails(
-      'lead_channel',
-      'Lead Notifications',
-      channelDescription: 'Notifications for lead actions',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
-    const platformDetails = NotificationDetails(android: androidDetails);
-    await _localNotifications.show(0, title, body, platformDetails);
   }
 
   String _effectiveStatus(Map<String, dynamic> lead) {
@@ -253,11 +205,9 @@ class _Main_LeadPageState extends State<Main_LeadPage>
         bottom: TabBar(
           controller: _statusController,
           isScrollable: true,
-          indicatorColor: _getAvatarColor(
-            activeStatus,
-          ), // dynamic underline color
-          labelColor: Colors.black, // selected label text
-          unselectedLabelColor: Colors.black54, // unselected text
+          indicatorColor: _getAvatarColor(activeStatus),
+          labelColor: Colors.black,
+          unselectedLabelColor: Colors.black54,
           tabs: statusTabLabels.map((label) {
             final cap = label.capitalize();
             final count = counts[label] ?? 0;
@@ -323,13 +273,11 @@ class _Main_LeadPageState extends State<Main_LeadPage>
                         final fullName = (lead['fullName'] ?? '').toString();
                         final phoneNumber = (lead['phoneNumber'] ?? '')
                             .toString();
-
                         final rawId = lead['_id'];
                         final leadId =
                             rawId is Map && rawId.containsKey('\$oid')
                             ? rawId['\$oid']
                             : rawId.toString();
-
                         final statusVal = _effectiveStatus(lead);
                         final initial = fullName.isNotEmpty
                             ? fullName[0].toUpperCase()
