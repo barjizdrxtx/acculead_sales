@@ -1,11 +1,9 @@
 // lib/home/notifications/MainNotificationPage.dart
 
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
@@ -20,26 +18,16 @@ class MainNotificationPage extends StatefulWidget {
 }
 
 class _MainNotificationPageState extends State<MainNotificationPage> {
-  late IO.Socket _socket;
   List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = true;
-  bool _isConnected = false;
 
   @override
   void initState() {
     super.initState();
-    _loadInitialNotifications();
-    _initSocket();
+    _loadNotifications();
   }
 
-  @override
-  void dispose() {
-    _socket.disconnect();
-    _socket.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadInitialNotifications() async {
+  Future<void> _loadNotifications() async {
     setState(() => _isLoading = true);
 
     final prefs = await SharedPreferences.getInstance();
@@ -56,6 +44,7 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
     final uri = Uri.parse(
       '${ApiConstants.baseUrl}/notifications/user/${Uri.encodeComponent(userId)}',
     );
+
     try {
       final res = await http.get(
         uri,
@@ -63,12 +52,10 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
       );
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body) as Map<String, dynamic>;
-        final list = body['success'] == true && body['result'] is List
+        final list = (body['success'] == true && body['result'] is List)
             ? (body['result'] as List).cast<Map<String, dynamic>>()
             : <Map<String, dynamic>>[];
-        setState(() {
-          _notifications = list;
-        });
+        setState(() => _notifications = list);
       } else {
         setState(() => _notifications = []);
       }
@@ -76,56 +63,6 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
       setState(() => _notifications = []);
     } finally {
       setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _initSocket() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString('userId') ?? '';
-    if (userId.isEmpty) return;
-
-    try {
-      // Use the same base URL as your API but with https
-      _socket = IO.io(
-        "api.acculeadinternational.com/",
-        IO.OptionBuilder()
-            .setTransports(['websocket']) // use WebSocket only
-            .enableAutoConnect() // auto connect
-            .setQuery({'userId': userId}) // pass userId
-            .build(),
-      );
-
-      _socket.onConnect((_) {
-        debugPrint('🟢 Socket connected: ${_socket.id}');
-        setState(() => _isConnected = true);
-      });
-
-      _socket.on('newNotification', (data) {
-        debugPrint('New notification received: $data');
-        final notif = (data is String)
-            ? jsonDecode(data) as Map<String, dynamic>
-            : data as Map<String, dynamic>;
-        setState(() {
-          _notifications.insert(0, notif);
-        });
-      });
-
-      _socket.onDisconnect((_) {
-        debugPrint('🔴 Socket disconnected');
-        setState(() => _isConnected = false);
-      });
-
-      _socket.onConnectError((err) {
-        debugPrint('⚠️ Socket connection error: $err');
-      });
-
-      _socket.onError((err) {
-        debugPrint('⚠️ Socket error: $err');
-      });
-
-      _socket.connect();
-    } catch (e) {
-      debugPrint('Socket initialization error: $e');
     }
   }
 
@@ -144,7 +81,7 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
         headers: {'Authorization': 'Bearer $token'},
       );
       if (res.statusCode == 200) {
-        _loadInitialNotifications();
+        _loadNotifications();
       }
     } catch (_) {}
   }
@@ -189,18 +126,6 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
             tooltip: 'Mark all as read',
             onPressed: _markAllAsRead,
           ),
-          IconButton(
-            icon: Icon(
-              _isConnected ? Icons.wifi : Icons.wifi_off,
-              color: _isConnected ? Colors.green : Colors.red,
-            ),
-            tooltip: _isConnected ? 'Connected' : 'Disconnected',
-            onPressed: () {
-              if (!_isConnected) {
-                _initSocket();
-              }
-            },
-          ),
         ],
       ),
       body: _isLoading
@@ -213,7 +138,7 @@ class _MainNotificationPageState extends State<MainNotificationPage> {
               ),
             )
           : RefreshIndicator(
-              onRefresh: _loadInitialNotifications,
+              onRefresh: _loadNotifications,
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 itemCount: _notifications.length,
