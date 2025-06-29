@@ -26,7 +26,6 @@ class _FollowUpFormPageState extends State<FollowUpFormPage> {
   bool _isSubmitting = false;
 
   final List<String> _statusOptions = [
-    'new',
     'in progress',
     'hot',
     'closed',
